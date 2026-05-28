@@ -467,19 +467,19 @@ class Player {
     // horizontal
     const accel=this.onIce?0.4:(this.onGround?1.0:0.65);
     const fric =this.onIce?0.97:(this.onGround?0.75:0.88);
-    if(ml){ this.vx-=5.8*accel; this._dir=-1; }
-    if(mr){ this.vx+=5.8*accel; this._dir=1; }
+    if(ml){ this.vx-=3.2*accel; this._dir=-1; }
+    if(mr){ this.vx+=3.2*accel; this._dir=1; }
     if(!ml&&!mr) this.vx*=fric;
-    this.vx=clamp(this.vx,-11,11);
+    this.vx=clamp(this.vx,-6.5,6.5);
     // gravity
     if(this.wallSlide&&this.vy>0) this.vy=Math.min(this.vy+0.25,2.8);
     else { this.vy+=0.68; if(!Input.jump()&&this.vy<0) this.vy+=0.35; }
     this.vy=clamp(this.vy,-20,19);
     // jump logic
     if(this._jBuf>0){
-      if(this.onGround||this._coyote>0){ this.vy=-14; this._jBuf=0; this._coyote=0; this.canDbl=true; this._sq=0.55; spawnLand(this.x+11,this.y+34); SFX.jump(); }
-      else if(this.wallSlide){ this.vy=-12.5; this.vx=-this.wallDir*8.5; this._jBuf=0; this._sq=0.6; SFX.jump(); }
-      else if(this.canDbl){ this.vy=-11.5; this._jBuf=0; this.canDbl=false; this._sq=0.6; spawnLand(this.x+11,this.y+17); SFX.dblJump(); }
+      if(this.onGround||this._coyote>0){ this.vy=-11; this._jBuf=0; this._coyote=0; this.canDbl=true; this._sq=0.55; spawnLand(this.x+11,this.y+34); SFX.jump(); }
+      else if(this.wallSlide){ this.vy=-10; this.vx=-this.wallDir*7; this._jBuf=0; this._sq=0.6; SFX.jump(); }
+      else if(this.canDbl){ this.vy=-9; this._jBuf=0; this.canDbl=false; this._sq=0.6; spawnLand(this.x+11,this.y+17); SFX.dblJump(); }
     }
     // squash/stretch
     this._sq=lerp(this._sq,1,0.14);
