@@ -477,7 +477,7 @@ class Player {
     this.vy=clamp(this.vy,-20,19);
     // jump logic
     if(this._jBuf>0){
-      if(this.onGround||this._coyote>0){ this.vy=-11; this._jBuf=0; this._coyote=0; this.canDbl=true; this._sq=0.55; spawnLand(this.x+11,this.y+34); SFX.jump(); }
+      if(this.onGround||this._coyote>0){ this.vy=-9; this._jBuf=0; this._coyote=0; this.canDbl=true; this._sq=0.55; spawnLand(this.x+11,this.y+34); SFX.jump(); }
       else if(this.wallSlide){ this.vy=-10; this.vx=-this.wallDir*7; this._jBuf=0; this._sq=0.6; SFX.jump(); }
       else if(this.canDbl){ this.vy=-9; this._jBuf=0; this.canDbl=false; this._sq=0.6; spawnLand(this.x+11,this.y+17); SFX.dblJump(); }
     }
@@ -749,66 +749,239 @@ const LEVELS = [
     checkpoints:[{x:1398,y:270},{x:3548,y:145}],
   },
 
-  // ─── LEVEL 3: The Gauntlet ──────────────────────────────────
+  // ─── LEVEL 3: Springboard City ──────────────────────────────
   {
-    name: 'The Gauntlet',
-    spawn: {x:80,y:460},
-    goal: {x:5850,y:10},
-    tip: 'Every block type awaits — stay focused!',
+    name: 'Springboard City',
+    spawn: {x:80,y:400},
+    goal: {x:5100,y:80},
+    tip: 'Bounce pads and boost pads launch you far — use your momentum!',
     blocks: [
-      {x:40, y:500,w:140,h:22,type:'normal'},
-      // spike lane
-      {x:255,y:500,w:55, h:20,type:'spike'},
-      {x:255,y:470,w:55, h:20,type:'normal'},
-      {x:385,y:450,w:55, h:20,type:'normal'},
-      {x:385,y:480,w:55, h:20,type:'spike'},
-      {x:515,y:430,w:60, h:20,type:'normal'},
-      // fast mover + crumble
-      {x:650,y:410,w:80,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:2.6},
-      {x:860,y:390,w:70,h:20,type:'crumble'},
-      {x:1000,y:370,w:70,h:20,type:'crumble'},
-      {x:1145,y:350,w:100,h:20,type:'normal'},
-      // checkpoint 1
-      {x:1315,y:350,w:150,h:20,type:'normal'},
-      // disappear + mover mix
-      {x:1540,y:345,w:80,h:20,type:'disappear',dCycle:85,dPhase:0},
-      {x:1695,y:325,w:80,h:20,type:'moving',mAxis:'y',mRange:110,mSpeed:2.2},
-      {x:1895,y:305,w:80,h:20,type:'disappear',dCycle:85,dPhase:43},
-      {x:2055,y:285,w:90,h:20,type:'normal'},
-      // ice + overhead spike
-      {x:2220,y:285,w:210,h:20,type:'ice'},
-      {x:2305,y:260,w:55, h:20,type:'spike'},
-      {x:2500,y:265,w:90,h:20,type:'normal'},
-      // boost chain
-      {x:2665,y:285,w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:17},
-      {x:2665,y:170,w:80,h:20,type:'normal'},
-      {x:2820,y:150,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.65},boostPow:15},
-      {x:3035,y:85, w:90,h:20,type:'normal'},
-      // checkpoint 2
-      {x:3200,y:85, w:150,h:20,type:'normal'},
-      // cloud + fast mover gauntlet
-      {x:3430,y:90, w:80,h:28,type:'cloud'},
-      {x:3590,y:70, w:80,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:3.0},
-      {x:3795,y:80, w:80,h:28,type:'cloud'},
-      {x:3960,y:60, w:80,h:20,type:'moving',mAxis:'y',mRange:90, mSpeed:2.8},
-      {x:4140,y:55, w:100,h:20,type:'normal'},
-      // all-type gauntlet
-      {x:4320,y:75, w:70,h:20,type:'crumble'},
-      {x:4460,y:55, w:70,h:20,type:'ice'},
-      {x:4600,y:75, w:70,h:20,type:'disappear',dCycle:75,dPhase:15},
-      {x:4740,y:55, w:70,h:20,type:'moving',mAxis:'x',mRange:65,mSpeed:2.2},
-      {x:4890,y:75, w:75,h:20,type:'bouncy'},
-      {x:4890,y:-30,w:75,h:20,type:'normal'},
-      // checkpoint 3
-      {x:5060,y:-30,w:150,h:20,type:'normal'},
-      // tight finale
-      {x:5290,y:-20,w:60,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.7},
-      {x:5490,y:-30,w:60,h:20,type:'disappear',dCycle:72,dPhase:36},
-      {x:5665,y:-40,w:60,h:20,type:'crumble'},
-      {x:5820,y:5,  w:85,h:20,type:'boost',boostDir:{x:0.2,y:-1},boostPow:16},
-      {x:5850,y:50, w:130,h:20,type:'normal'},
+      // ── Opening: bounce staircase ──
+      {x:40,  y:440,w:150,h:22,type:'normal'},
+      {x:260, y:440,w:80, h:20,type:'bouncy'},
+      {x:405, y:320,w:80, h:20,type:'normal'},
+      {x:555, y:340,w:80, h:20,type:'bouncy'},
+      {x:700, y:220,w:80, h:20,type:'normal'},
+      {x:850, y:240,w:80, h:20,type:'bouncy'},
+      {x:1000,y:120,w:90, h:20,type:'normal'},
+      // ── Checkpoint 1 ──
+      {x:1170,y:120,w:150,h:20,type:'normal'},
+      // ── Moving highway — horizontal wave ──
+      {x:1400,y:140,w:85, h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:1.8},
+      {x:1600,y:120,w:85, h:20,type:'moving',mAxis:'x',mRange:90, mSpeed:2.1,mPhase:1.5},
+      {x:1800,y:140,w:85, h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.4},
+      {x:2005,y:120,w:85, h:20,type:'moving',mAxis:'x',mRange:90, mSpeed:2.0,mPhase:3.1},
+      {x:2205,y:100,w:90, h:20,type:'normal'},
+      // ── Cloud hop ──
+      {x:2380,y:100,w:100,h:28,type:'cloud'},
+      {x:2560,y:80, w:100,h:28,type:'cloud'},
+      {x:2740,y:100,w:100,h:28,type:'cloud'},
+      {x:2920,y:80, w:90, h:20,type:'normal'},
+      // ── Checkpoint 2 ──
+      {x:3090,y:80, w:150,h:20,type:'normal'},
+      // ── Vertical movers + disappear mix ──
+      {x:3320,y:100,w:80, h:20,type:'moving',mAxis:'y',mRange:110,mSpeed:2.0},
+      {x:3490,y:80, w:80, h:20,type:'disappear',dCycle:100,dPhase:0},
+      {x:3650,y:100,w:80, h:20,type:'moving',mAxis:'y',mRange:90, mSpeed:2.4},
+      {x:3820,y:80, w:80, h:20,type:'disappear',dCycle:100,dPhase:50},
+      {x:3990,y:60, w:90, h:20,type:'normal'},
+      // ── Ice slide into crumble ──
+      {x:4160,y:80, w:140,h:20,type:'ice'},
+      {x:4370,y:60, w:75, h:20,type:'crumble'},
+      {x:4510,y:40, w:75, h:20,type:'crumble'},
+      {x:4650,y:60, w:85, h:20,type:'normal'},
+      // ── Checkpoint 3 ──
+      {x:4820,y:60, w:150,h:20,type:'normal'},
+      // ── Boost finale — two-stage launch to goal ──
+      {x:5045,y:80, w:80, h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:17},
+      {x:5045,y:-35,w:80, h:20,type:'normal'},
+      {x:5200,y:-15,w:80, h:20,type:'boost',boostDir:{x:1,y:-0.5},boostPow:14},
+      {x:5380,y:120,w:160,h:20,type:'normal'},
     ],
-    checkpoints:[{x:1333,y:310},{x:3218,y:45},{x:5078,y:-70}],
+    checkpoints:[{x:1188,y:80},{x:3108,y:40},{x:4838,y:20}],
+  },
+
+  // ─── LEVEL 4: Frozen Heights ────────────────────────────────
+  {
+    name: 'Frozen Heights',
+    spawn: {x:80,y:390},
+    goal: {x:5500,y:100},
+    tip: 'Ice blocks are slippery — control your speed carefully!',
+    blocks: [
+      {x:40,  y:430,w:160,h:22,type:'normal'},
+      // ice staircase
+      {x:275, y:410,w:110,h:20,type:'ice'},
+      {x:450, y:385,w:110,h:20,type:'ice'},
+      {x:625, y:360,w:110,h:20,type:'ice'},
+      // moving + normal landing
+      {x:805, y:340,w:90, h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:1.8},
+      {x:995, y:320,w:90, h:20,type:'normal'},
+      // bouncy launch
+      {x:1155,y:345,w:80, h:20,type:'bouncy'},
+      {x:1155,y:225,w:80, h:20,type:'normal'},
+      // checkpoint 1
+      {x:1315,y:225,w:150,h:20,type:'normal'},
+      // ice + disappear alternating
+      {x:1540,y:245,w:100,h:20,type:'ice'},
+      {x:1705,y:225,w:90, h:20,type:'disappear',dCycle:105,dPhase:0},
+      {x:1865,y:205,w:100,h:20,type:'ice'},
+      {x:2030,y:185,w:90, h:20,type:'disappear',dCycle:105,dPhase:53},
+      {x:2195,y:165,w:100,h:20,type:'normal'},
+      // crumble over spikes
+      {x:2365,y:185,w:70, h:20,type:'crumble'},
+      {x:2365,y:218,w:70, h:20,type:'spike'},
+      {x:2505,y:165,w:70, h:20,type:'crumble'},
+      {x:2505,y:198,w:70, h:20,type:'spike'},
+      {x:2645,y:145,w:100,h:20,type:'normal'},
+      // checkpoint 2
+      {x:2815,y:145,w:150,h:20,type:'normal'},
+      // fast movers
+      {x:3045,y:165,w:80, h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.0},
+      {x:3255,y:145,w:80, h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:2.5},
+      {x:3445,y:125,w:90, h:20,type:'normal'},
+      // boost up to clouds
+      {x:3615,y:145,w:80, h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:16},
+      {x:3615,y:30, w:80, h:20,type:'normal'},
+      {x:3775,y:50, w:90, h:28,type:'cloud'},
+      {x:3945,y:30, w:90, h:28,type:'cloud'},
+      {x:4115,y:50, w:80, h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.2},
+      {x:4295,y:30, w:90, h:20,type:'normal'},
+      // checkpoint 3
+      {x:4465,y:30, w:150,h:20,type:'normal'},
+      // ice + moving finale
+      {x:4695,y:50, w:120,h:20,type:'ice'},
+      {x:4885,y:30, w:90, h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.8},
+      {x:5085,y:50, w:80, h:20,type:'crumble'},
+      {x:5225,y:30, w:80, h:20,type:'boost',boostDir:{x:0.3,y:-1},boostPow:15},
+      {x:5380,y:120,w:150,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1333,y:185},{x:2833,y:105},{x:4483,y:-10}],
+  },
+
+  // ─── LEVEL 5: Storm Clouds ──────────────────────────────────
+  {
+    name: 'Storm Clouds',
+    spawn: {x:80,y:430},
+    goal: {x:5900,y:80},
+    tip: 'Clouds only hold from above — time your drops carefully!',
+    blocks: [
+      {x:40,  y:470,w:150,h:22,type:'normal'},
+      // cloud hop intro
+      {x:270, y:450,w:100,h:28,type:'cloud'},
+      {x:445, y:425,w:100,h:28,type:'cloud'},
+      {x:620, y:405,w:100,h:28,type:'cloud'},
+      {x:790, y:385,w:100,h:20,type:'normal'},
+      // spike lane with movers
+      {x:960, y:385,w:50, h:20,type:'spike'},
+      {x:1060,y:365,w:85, h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.0},
+      {x:1250,y:345,w:50, h:20,type:'spike'},
+      {x:1360,y:325,w:90, h:20,type:'normal'},
+      // checkpoint 1
+      {x:1530,y:325,w:150,h:20,type:'normal'},
+      // short-cycle disappear chain
+      {x:1760,y:320,w:75, h:20,type:'disappear',dCycle:90,dPhase:0},
+      {x:1910,y:300,w:75, h:20,type:'disappear',dCycle:90,dPhase:22},
+      {x:2060,y:280,w:75, h:20,type:'disappear',dCycle:90,dPhase:44},
+      {x:2210,y:260,w:75, h:20,type:'disappear',dCycle:90,dPhase:66},
+      {x:2360,y:240,w:90, h:20,type:'normal'},
+      // ice slide into boost
+      {x:2530,y:260,w:150,h:20,type:'ice'},
+      {x:2750,y:240,w:80, h:20,type:'boost',boostDir:{x:1,y:-0.6},boostPow:15},
+      {x:2945,y:145,w:90, h:20,type:'normal'},
+      // checkpoint 2
+      {x:3115,y:145,w:150,h:20,type:'normal'},
+      // fast cloud + mover sequence
+      {x:3345,y:145,w:85, h:28,type:'cloud'},
+      {x:3515,y:125,w:80, h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:2.8},
+      {x:3705,y:135,w:85, h:28,type:'cloud'},
+      {x:3875,y:115,w:80, h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:3.2},
+      {x:4075,y:105,w:90, h:20,type:'normal'},
+      // crumble over spikes
+      {x:4245,y:125,w:70, h:20,type:'crumble'},
+      {x:4245,y:158,w:70, h:20,type:'spike'},
+      {x:4385,y:105,w:70, h:20,type:'crumble'},
+      {x:4385,y:138,w:70, h:20,type:'spike'},
+      {x:4525,y:85, w:90, h:20,type:'normal'},
+      // checkpoint 3
+      {x:4695,y:85, w:150,h:20,type:'normal'},
+      // double boost finale
+      {x:4925,y:105,w:80, h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:18},
+      {x:4925,y:-20,w:80, h:20,type:'normal'},
+      {x:5095,y:0,  w:80, h:20,type:'boost',boostDir:{x:1,y:-0.5},boostPow:16},
+      {x:5290,y:-50,w:80, h:20,type:'normal'},
+      {x:5450,y:-30,w:80, h:28,type:'cloud'},
+      {x:5620,y:-50,w:80, h:20,type:'moving',mAxis:'x',mRange:80,mSpeed:2.5},
+      {x:5800,y:120,w:150,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1548,y:285},{x:3133,y:105},{x:4713,y:45}],
+  },
+
+  // ─── LEVEL 6: The Sky Throne ────────────────────────────────
+  {
+    name: 'The Sky Throne',
+    spawn: {x:80,y:460},
+    goal: {x:6300,y:30},
+    tip: 'The final challenge — master everything you know!',
+    blocks: [
+      {x:40,  y:500,w:130,h:22,type:'normal'},
+      // crumble opening
+      {x:250, y:480,w:60, h:20,type:'crumble'},
+      {x:380, y:460,w:60, h:20,type:'crumble'},
+      {x:510, y:440,w:60, h:20,type:'crumble'},
+      {x:640, y:420,w:80, h:20,type:'normal'},
+      // spike maze
+      {x:800, y:440,w:50, h:20,type:'spike'},
+      {x:800, y:410,w:50, h:20,type:'normal'},
+      {x:920, y:390,w:50, h:20,type:'normal'},
+      {x:920, y:420,w:50, h:20,type:'spike'},
+      {x:1040,y:370,w:50, h:20,type:'normal'},
+      {x:1040,y:400,w:50, h:20,type:'spike'},
+      {x:1170,y:350,w:90, h:20,type:'normal'},
+      // checkpoint 1
+      {x:1340,y:350,w:150,h:20,type:'normal'},
+      // ice + fast mover + overhead spike
+      {x:1570,y:370,w:180,h:20,type:'ice'},
+      {x:1640,y:345,w:50, h:20,type:'spike'},
+      {x:1825,y:350,w:80, h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.5},
+      {x:2025,y:330,w:80, h:20,type:'normal'},
+      // disappear + crumble alternating
+      {x:2185,y:330,w:70, h:20,type:'disappear',dCycle:80,dPhase:0},
+      {x:2325,y:310,w:70, h:20,type:'crumble'},
+      {x:2465,y:290,w:70, h:20,type:'disappear',dCycle:80,dPhase:40},
+      {x:2605,y:270,w:80, h:20,type:'normal'},
+      // checkpoint 2
+      {x:2775,y:270,w:150,h:20,type:'normal'},
+      // boost + mover + disappear tower
+      {x:3005,y:290,w:75, h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:17},
+      {x:3005,y:170,w:75, h:20,type:'normal'},
+      {x:3165,y:150,w:75, h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:3.0},
+      {x:3365,y:130,w:75, h:20,type:'disappear',dCycle:75,dPhase:20},
+      {x:3525,y:110,w:80, h:20,type:'normal'},
+      // cloud gauntlet with movers
+      {x:3695,y:110,w:80, h:28,type:'cloud'},
+      {x:3865,y:90, w:80, h:28,type:'cloud'},
+      {x:4035,y:110,w:75, h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:3.0},
+      {x:4215,y:90, w:80, h:28,type:'cloud'},
+      {x:4385,y:70, w:90, h:20,type:'normal'},
+      // checkpoint 3
+      {x:4555,y:70, w:150,h:20,type:'normal'},
+      // all-type gauntlet row
+      {x:4785,y:90, w:65, h:20,type:'crumble'},
+      {x:4925,y:70, w:65, h:20,type:'ice'},
+      {x:5065,y:90, w:65, h:20,type:'disappear',dCycle:70,dPhase:10},
+      {x:5205,y:70, w:65, h:20,type:'moving',mAxis:'x',mRange:70,mSpeed:2.8},
+      {x:5345,y:50, w:65, h:20,type:'bouncy'},
+      {x:5345,y:-55,w:65, h:20,type:'normal'},
+      // checkpoint 4
+      {x:5515,y:-55,w:150,h:20,type:'normal'},
+      // tight final sprint
+      {x:5745,y:-40,w:60, h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:3.2},
+      {x:5945,y:-50,w:60, h:20,type:'disappear',dCycle:68,dPhase:34},
+      {x:6115,y:-60,w:60, h:20,type:'crumble'},
+      {x:6245,y:10, w:80, h:20,type:'boost',boostDir:{x:0.1,y:-1},boostPow:17},
+      {x:6280,y:70, w:150,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1358,y:310},{x:2793,y:230},{x:4573,y:30},{x:5533,y:-95}],
   },
 ];
 
