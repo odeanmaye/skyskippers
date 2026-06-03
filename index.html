@@ -414,12 +414,24 @@ class Checkpoint {
 
 // ── GOAL ──
 class Goal {
-  constructor(x,y){ this.x=x; this.y=y; this.w=40; this.h=60; this._t=0; }
+  constructor(x,y,locked=false){ this.x=x; this.y=y; this.w=40; this.h=60; this._t=0; this.locked=locked; }
   update(){ this._t++; }
   draw(cx,cy){
     const sx=this.x-cx+this.w/2, sy=this.y-cy+this.h/2;
     const r=26+Math.sin(this._t*0.07)*5;
     const pulse=Math.sin(this._t*0.05)*0.2+0.8;
+    if(this.locked){
+      // Locked: dim red portal with lock icon
+      ctx.strokeStyle=`rgba(180,60,60,${0.5*pulse})`; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle=`rgba(80,20,20,${0.4*pulse})`;
+      ctx.beginPath(); ctx.arc(sx,sy,r-7,0,Math.PI*2); ctx.fill();
+      ctx.font='26px sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,100,100,0.7)';
+      ctx.fillText('🔒',sx,sy+10);
+      ctx.fillStyle='rgba(255,120,120,0.6)'; ctx.font='bold 10px sans-serif';
+      ctx.fillText('DEFEAT THE BOSS',sx,sy+r+16);
+      return;
+    }
     const g=ctx.createRadialGradient(sx,sy,0,sx,sy,r+18);
     g.addColorStop(0,`rgba(80,255,180,${0.35*pulse})`); g.addColorStop(1,'rgba(80,255,180,0)');
     ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,sy,r+18,0,Math.PI*2); ctx.fill();
@@ -433,8 +445,353 @@ class Goal {
     ctx.fillText('GOAL',sx,sy+r+16);
   }
   hits(p){
+    if(this.locked) return false;
     const cx=this.x+this.w/2, cy=this.y+this.h/2;
     return Math.hypot(cx-(p.x+p.w/2),cy-(p.y+p.h/2))<36;
+  }
+}
+
+// ── PROJECTILE ──
+class Projectile {
+  constructor(x,y,vx,vy){ this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.r=9; this.dead=false; this._t=0; }
+  update(){ this._t++; this.x+=this.vx; this.y+=this.vy; if(this._t>280||this.x<-400||this.x>10000) this.dead=true; }
+  hits(p){ return Math.hypot(this.x-(p.x+p.w/2),this.y-(p.y+p.h/2))<this.r+10; }
+  draw(cx,cy){
+    const sx=this.x-cx, sy=this.y-cy;
+    const pulse=Math.sin(this._t*0.25)*0.3+0.7;
+    ctx.fillStyle=`rgba(255,80,20,${0.25*pulse})`; ctx.beginPath(); ctx.arc(sx,sy,this.r+8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ff5511';                        ctx.beginPath(); ctx.arc(sx,sy,this.r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ffcc88';                        ctx.beginPath(); ctx.arc(sx,sy,this.r*0.45,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ── BOSS ──
+class Boss {
+  constructor(x,y,arenaL,arenaR,maxHp=5){
+    this.x=x; this.y=y; this.w=96; this.h=96;
+    this._arenaL=arenaL; this._arenaR=arenaR; this._baseY=y;
+    this.hp=maxHp; this.maxHp=maxHp; this._phase=1;
+    this.vx=1; this._t=0; this._stateT=0;
+    // State: patrol | telegraphCharge | charge | telegraphPound | pound | poundLand
+    this._state='patrol';
+    this._shootT=0; this._chargeT=0; this._poundT=0;
+    this._chargeDir=1; this._poundVY=0;
+    this.projs=[]; this._hitTexts=[];
+    this._inv=0; this._phaseFlash=0; this._lightningT=0;
+    this._active=false; this._warnT=190;
+    this.dead=false; this.defeated=false; this._defT=0;
+  }
+
+  // ── attack helpers ──
+  _shoot(player){
+    const bcx=this.x+48, bcy=this.y+48;
+    const pcx=player.x+player.w/2, pcy=player.y+player.h/2;
+    const dist=Math.hypot(pcx-bcx,pcy-bcy)||1;
+    const spd=5.8;
+    this.projs.push(new Projectile(bcx,bcy,(pcx-bcx)/dist*spd,(pcy-bcy)/dist*spd));
+    if(this._phase>=2){
+      const ang=Math.atan2(pcy-bcy,pcx-bcx), spread=this._phase===3?0.32:0.48;
+      [-spread,spread].forEach(off=>this.projs.push(new Projectile(bcx,bcy,Math.cos(ang+off)*spd,Math.sin(ang+off)*spd)));
+    }
+    if(this._phase===3){
+      const ang=Math.atan2(pcy-bcy,pcx-bcx);
+      [-0.85,0.85].forEach(off=>this.projs.push(new Projectile(bcx,bcy,Math.cos(ang+off)*(spd-1),Math.sin(ang+off)*(spd-1))));
+    }
+    tone(220,0.09,'sawtooth',0.07,120);
+  }
+  _spawnShockwaves(){
+    const wy=this._baseY+this.h-8;
+    this.projs.push(new Projectile(this.x,wy,-6.5,0));
+    this.projs.push(new Projectile(this.x+this.w,wy,6.5,0));
+  }
+
+  // ── main update ──
+  update(player,game){
+    this._t++; this._lightningT++;
+    if(!this._active&&player.x>this._arenaL-380){ this._active=true; }
+    if(!this._active) return;
+    if(this._warnT>0){ this._warnT--; return; }
+    if(this.defeated){
+      this._defT++;
+      if(this._defT===1){
+        const cls=['#ff6600','#ffaa00','#ff2200','#ffff00','#fff','#ff88ff'];
+        for(let i=0;i<90;i++){ const a=rand(0,Math.PI*2),s=rand(3,18); addP(this.x+48,this.y+48,Math.cos(a)*s,Math.sin(a)*s-3,rand(4,13),rc(cls),ri(60,110)); }
+        game.bossDefeated=true; game.goal.locked=false;
+        [250,380,530,700,920,1200].forEach((f,i)=>setTimeout(()=>tone(f,0.28,'sine',0.14),i*90));
+      }
+      if(this._defT>5) this.dead=true;
+      return;
+    }
+
+    // Phase transitions
+    if(this._phaseFlash>0) this._phaseFlash--;
+    const prevPhase=this._phase;
+    if(this.hp<=Math.ceil(this.maxHp*0.6)&&this._phase===1){ this._phase=2; this._phaseFlash=90; game._shake=28; tone(150,0.3,'square',0.15); }
+    if(this.hp<=1&&this._phase<3){ this._phase=3; this._phaseFlash=90; game._shake=35; tone(100,0.4,'square',0.18); }
+
+    const spd   =[0,1.5,2.8,4.5][this._phase];
+    const shootI=[0,120,52,32][this._phase];
+    const chargeI=[0,9999,160,90][this._phase]; // phase 1 never charges
+    const poundI =[0,9999,360,180][this._phase]; // phase 1 never pounds
+
+    this._stateT++;
+    switch(this._state){
+      case 'patrol':
+        this.x+=this.vx*spd;
+        if(this.x<=this._arenaL){ this.x=this._arenaL; this.vx=1; }
+        if(this.x+this.w>=this._arenaR){ this.x=this._arenaR-this.w; this.vx=-1; }
+        this.y=this._baseY+Math.sin(this._t*0.045)*10;
+        this._shootT++; if(this._shootT>=shootI){ this._shootT=0; this._shoot(player); }
+        this._chargeT++; if(this._chargeT>=chargeI){ this._chargeT=0; this._chargeDir=player.x>this.x+48?1:-1; this._state='telegraphCharge'; this._stateT=0; }
+        this._poundT++;  if(this._poundT>=poundI){  this._poundT=0;  this._state='telegraphPound';  this._stateT=0; }
+        break;
+      case 'telegraphCharge':
+        if(this._stateT>=58){ this._state='charge'; this._stateT=0; game._shake=5; }
+        break;
+      case 'charge':
+        this.y=this._baseY;
+        this.x+=this._chargeDir*15;
+        if(this.x<=this._arenaL||this.x+this.w>=this._arenaR){
+          this.x=clamp(this.x,this._arenaL,this._arenaR-this.w);
+          this._state='patrol'; this._stateT=0; tone(180,0.12,'square',0.1);
+        }
+        // Charge body damage
+        if(!player.dead&&player.x<this.x+this.w&&player.x+player.w>this.x&&player.y<this.y+this.h&&player.y+player.h>this.y) player.die(game);
+        break;
+      case 'telegraphPound':
+        if(this._stateT>=68){ this._state='pound'; this._stateT=0; this._poundVY=-18; }
+        break;
+      case 'pound':
+        this._poundVY+=1.0; this.y+=this._poundVY;
+        if(this.y>=this._baseY){
+          this.y=this._baseY; this._state='poundLand'; this._stateT=0;
+          this._spawnShockwaves(); game._shake=24;
+          tone(80,0.28,'square',0.18);
+          for(let i=0;i<35;i++) addP(this.x+48,this.y+this.h,rand(-10,10),rand(-5,-0.5),rand(4,9),rc(['#ff4400','#ffaa00','#fff']),ri(22,45));
+        }
+        break;
+      case 'poundLand':
+        if(this._stateT>=50){ this._state='patrol'; this._stateT=0; }
+        break;
+    }
+
+    // Projectile updates
+    for(let i=this.projs.length-1;i>=0;i--){
+      const p=this.projs[i]; p.update();
+      if(!player.dead&&p.hits(player)){ player.die(game); p.dead=true; }
+      if(p.dead) this.projs.splice(i,1);
+    }
+    // Stomp detection
+    if(this._inv<=0&&!player.dead&&this._state!=='telegraphCharge'){
+      const py2=player.y+player.h;
+      if(player.vy>0&&py2>=this.y-5&&py2<=this.y+26&&player.x+player.w>this.x+6&&player.x<this.x+this.w-6) this._hit(player,game);
+    }
+    if(this._inv>0) this._inv--;
+    for(let i=this._hitTexts.length-1;i>=0;i--){ const h=this._hitTexts[i]; h.y-=1.4; h.t--; if(h.t<=0) this._hitTexts.splice(i,1); }
+    // Phase 3 embers
+    if(this._phase===3&&this._t%6===0) addP(this.x+rand(8,88),this.y+rand(10,86),rand(-1,1),rand(-3,-0.5),rand(2,4),'#ff6600',ri(12,22),0.04);
+  }
+
+  _hit(player,game){
+    this.hp--; this._inv=68;
+    player.vy=-14; player.canDbl=true;
+    const hpLeft=Math.max(0,this.hp);
+    this._hitTexts.push({x:this.x+rand(10,86),y:this.y-18,t:40,n:hpLeft>0?`STOMP! ${hpLeft} HP left`:'LAST HIT!'});
+    for(let i=0;i<24;i++) addP(this.x+48,this.y+8,rand(-7,7),rand(-8,-1),rand(3,8),rc(['#ff8800','#ffcc00','#fff','#ff4400']),ri(24,45));
+    tone(1100,0.07,'square',0.18,600); game._shake=12;
+    if(this.hp<=0) this.defeated=true;
+  }
+
+  // ── draw ──
+  draw(cx,cy){
+    if(this.dead) return;
+    const sx=this.x-cx, sy=this.y-cy, {w,h}=this;
+
+    // ── warning banner ──
+    if(this._active&&this._warnT>0){
+      const a=Math.min(1,this._warnT>130?(this._warnT-130)/60:this._warnT/60);
+      ctx.globalAlpha=a;
+      ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(W/2-240,H/2-60,480,78);
+      ctx.fillStyle='#ff3300'; ctx.font='bold 34px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('⚡  SKY TITAN AWAKENS  ⚡',W/2,H/2-18);
+      ctx.fillStyle='#ffaa88'; ctx.font='15px sans-serif';
+      ctx.fillText('Jump on its crown to deal damage  •  Dodge the attacks!',W/2,H/2+20);
+      ctx.globalAlpha=1; return;
+    }
+
+    const phaseC=[null,
+      {body:'#8833dd',dark:'#441188',glow:'#cc88ff',eye:'#ffff44',crown:'#ffcc00'},
+      {body:'#cc4400',dark:'#881100',glow:'#ff9944',eye:'#ffee44',crown:'#ff8800'},
+      {body:'#ff1100',dark:'#880000',glow:'#ff5500',eye:'#ffffff',crown:'#ff4400'},
+    ];
+    const pc=phaseC[this._phase];
+
+    // invincibility flash
+    const inv=this._inv>0&&Math.floor(this._inv/4)%2===1;
+    if(inv) ctx.globalAlpha=0.22;
+
+    // phase transition white flash
+    if(this._phaseFlash>0&&Math.floor(this._phaseFlash/5)%2===0){
+      ctx.globalAlpha=0.6; ctx.fillStyle='#fff'; ctx.fillRect(sx-5,sy-5,w+10,h+10); ctx.globalAlpha=inv?0.22:1;
+    }
+
+    // floor shadow
+    const floorSY=this._baseY+h+4-cy;
+    ctx.globalAlpha=0.32; ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.ellipse(sx+48,floorSY,46,9,0,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=inv?0.22:1;
+
+    // outer glow / aura
+    const auraR=62+Math.sin(this._t*0.08)*6;
+    const grdA=ctx.createRadialGradient(sx+48,sy+48,0,sx+48,sy+48,auraR+20);
+    grdA.addColorStop(0,`${pc.glow}55`); grdA.addColorStop(1,`${pc.glow}00`);
+    ctx.fillStyle=grdA; ctx.beginPath(); ctx.arc(sx+48,sy+48,auraR+20,0,Math.PI*2); ctx.fill();
+
+    // ── charge telegraph ──
+    if(this._state==='telegraphCharge'){
+      const p=Math.sin(this._stateT*0.35)*0.5+0.5;
+      ctx.strokeStyle=`rgba(255,220,0,${0.5+p*0.5})`; ctx.lineWidth=7;
+      ctx.strokeRect(sx-4,sy-4,w+8,h+8);
+      ctx.fillStyle=`rgba(255,200,0,0.12)`; ctx.fillRect(sx-4,sy-4,w+8,h+8);
+    }
+    // ── pound telegraph ──
+    if(this._state==='telegraphPound'){
+      const frac=this._stateT/68;
+      ctx.globalAlpha=0.45*frac; ctx.fillStyle='#aa00ff';
+      ctx.beginPath(); ctx.ellipse(sx+48,floorSY,55*frac,14*frac,0,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=inv?0.22:1;
+    }
+
+    // ── body ──
+    const gBody=ctx.createLinearGradient(sx,sy,sx,sy+h);
+    gBody.addColorStop(0,pc.body); gBody.addColorStop(1,pc.dark);
+    ctx.fillStyle=gBody; ctx.fillRect(sx,sy,w,h);
+    // rim highlights
+    ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillRect(sx,sy,11,h);
+    ctx.fillStyle='rgba(0,0,0,0.22)';       ctx.fillRect(sx+w-11,sy,11,h);
+
+    // phase 3 cracks
+    if(this._phase===3){
+      ctx.strokeStyle='rgba(255,120,0,0.65)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(sx+22,sy+8); ctx.lineTo(sx+32,sy+44); ctx.lineTo(sx+18,sy+78); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx+70,sy+18); ctx.lineTo(sx+60,sy+52); ctx.lineTo(sx+74,sy+84); ctx.stroke();
+    }
+
+    // ── eyes ──
+    const eyeY=sy+Math.round(h*0.26);
+    ctx.fillStyle=pc.eye;
+    ctx.fillRect(sx+12,eyeY,22,18); ctx.fillRect(sx+w-34,eyeY,22,18);
+    ctx.fillStyle='#111';
+    ctx.fillRect(sx+16,eyeY+4,13,12); ctx.fillRect(sx+w-28,eyeY+4,13,12);
+    ctx.fillStyle='#fff';
+    ctx.fillRect(sx+17,eyeY+4,6,6); ctx.fillRect(sx+w-27,eyeY+4,6,6);
+    // pupils track player
+    const pdx=clamp((player.x+player.w/2-(this.x+48))/220,-1,1);
+    const pdy=clamp((player.y+player.h/2-(this.y+48))/170,-1,1);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx+19+Math.round(pdx*3.5),eyeY+6+Math.round(pdy*2.5),7,7);
+    ctx.fillRect(sx+w-25+Math.round(pdx*3.5),eyeY+6+Math.round(pdy*2.5),7,7);
+    // brows
+    ctx.strokeStyle='#111'; ctx.lineWidth=3.5; ctx.lineCap='round';
+    if(this._phase===3){
+      ctx.beginPath(); ctx.moveTo(sx+9,eyeY+6); ctx.lineTo(sx+36,eyeY-5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx+w-9,eyeY+6); ctx.lineTo(sx+w-36,eyeY-5); ctx.stroke();
+    } else if(this._phase===2){
+      ctx.beginPath(); ctx.moveTo(sx+9,eyeY+3); ctx.lineTo(sx+36,eyeY-2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx+w-9,eyeY+3); ctx.lineTo(sx+w-36,eyeY-2); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(sx+9,eyeY-2); ctx.lineTo(sx+36,eyeY+4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx+w-9,eyeY-2); ctx.lineTo(sx+w-36,eyeY+4); ctx.stroke();
+    }
+    ctx.lineCap='butt';
+    // mouth
+    ctx.strokeStyle='#ffcc44'; ctx.lineWidth=3;
+    const mY=sy+Math.round(h*0.72);
+    ctx.beginPath();
+    if(this.hp<=1){ ctx.arc(sx+48,mY,11,0,Math.PI,true); }
+    else { ctx.moveTo(sx+14,mY); ctx.lineTo(sx+w-14,mY); }
+    ctx.stroke();
+
+    // ── crown ──
+    ctx.fillStyle=pc.crown;
+    ctx.beginPath();
+    ctx.moveTo(sx+5,sy);   ctx.lineTo(sx+5,sy-26);
+    ctx.lineTo(sx+24,sy-13); ctx.lineTo(sx+48,sy-34);
+    ctx.lineTo(sx+72,sy-13); ctx.lineTo(sx+w-5,sy-26);
+    ctx.lineTo(sx+w-5,sy);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=this._phase===1?'#cc9900':'#cc4400'; ctx.lineWidth=2; ctx.stroke();
+    // jewels
+    ctx.fillStyle='#ff2244'; ctx.beginPath(); ctx.arc(sx+48,sy-31,8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=this._phase>=2?'#ff8844':'#44aaff';
+    ctx.beginPath(); ctx.arc(sx+16,sy-23,5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx+w-16,sy-23,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,200,0.7)';
+    ctx.beginPath(); ctx.arc(sx+48,sy-31,4,0,Math.PI*2); ctx.fill();
+
+    // ── lightning arcs (phase 2+) ──
+    if(this._phase>=2&&this._lightningT%16<9){
+      ctx.strokeStyle=`rgba(230,180,255,${0.35+Math.random()*0.45})`; ctx.lineWidth=1.5;
+      for(let n=0;n<2;n++){
+        const lx=sx+rand(12,84), ly=sy+rand(12,84);
+        ctx.beginPath(); ctx.moveTo(lx,ly);
+        for(let i=0;i<5;i++) ctx.lineTo(lx+rand(-25,25),ly+rand(-25,25));
+        ctx.stroke();
+      }
+    }
+
+    // ── charge speed lines ──
+    if(this._state==='charge'){
+      ctx.strokeStyle='rgba(255,200,0,0.55)'; ctx.lineWidth=2;
+      for(let i=0;i<7;i++){
+        const lx=sx-this._chargeDir*rand(12,70), ly=sy+rand(8,88);
+        ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+this._chargeDir*rand(25,60),ly); ctx.stroke();
+      }
+    }
+
+    // ── body outline glow ──
+    ctx.globalAlpha=0.65+Math.sin(this._t*0.1)*0.2;
+    ctx.strokeStyle=pc.glow; ctx.lineWidth=2.5; ctx.strokeRect(sx-1,sy-1,w+2,h+2);
+    ctx.globalAlpha=1;
+
+    // ── hit texts ──
+    for(const ht of this._hitTexts){
+      ctx.globalAlpha=Math.min(1,ht.t/20);
+      ctx.fillStyle='#ffdd00'; ctx.strokeStyle='#000'; ctx.lineWidth=3;
+      ctx.font='bold 17px sans-serif'; ctx.textAlign='center';
+      ctx.strokeText(ht.n,ht.x-cx,ht.y-cy);
+      ctx.fillText(ht.n,ht.x-cx,ht.y-cy);
+    }
+    ctx.globalAlpha=1;
+
+    // ── HP bar (always screen-space) ──
+    const bW=210, bH=17, bX=W/2-bW/2, bY=15;
+    ctx.fillStyle='rgba(0,0,0,0.82)'; ctx.fillRect(bX-5,bY-22,bW+10,bH+28);
+    const phaseLabel=['','⬛ Phase I','🟧 Phase II','🔴 Phase III'][this._phase];
+    ctx.fillStyle=pc.glow; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(`⚡ SKY TITAN  ${phaseLabel}`,bX+bW/2,bY-6);
+    ctx.fillStyle='#222'; ctx.fillRect(bX,bY,bW,bH);
+    const hpF=Math.max(0,this.hp/this.maxHp);
+    const barCol=hpF>0.6?'#44ff44':(hpF>0.3?'#ffaa00':'#ff2222');
+    ctx.fillStyle=barCol; ctx.fillRect(bX,bY,bW*hpF,bH);
+    // animated bar shimmer
+    ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bX,bY,bW*hpF,Math.round(bH*0.4));
+    for(let i=1;i<this.maxHp;i++){
+      ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(bX+bW*(i/this.maxHp),bY); ctx.lineTo(bX+bW*(i/this.maxHp),bY+bH); ctx.stroke();
+    }
+    ctx.strokeStyle='#888'; ctx.lineWidth=1; ctx.strokeRect(bX,bY,bW,bH);
+    // attack warning label below bar
+    const lblMap={patrol:'',telegraphCharge:'⚡ CHARGE INCOMING!',charge:'◀▶ CHARGING!',
+                  telegraphPound:'⬇ GROUND POUND!',pound:'💥 SLAMMING!',poundLand:''};
+    const lbl=lblMap[this._state]||'';
+    if(lbl){
+      ctx.fillStyle='#ffdd00'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(lbl,W/2,bY+bH+18);
+    }
+
+    // ── projectiles ──
+    for(const p of this.projs) p.draw(cx,cy);
   }
 }
 
@@ -974,14 +1331,451 @@ const LEVELS = [
       {x:5345,y:-55,w:65, h:20,type:'normal'},
       // checkpoint 4
       {x:5515,y:-55,w:150,h:20,type:'normal'},
-      // tight final sprint
-      {x:5745,y:-40,w:60, h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:3.2},
-      {x:5945,y:-50,w:60, h:20,type:'disappear',dCycle:68,dPhase:34},
-      {x:6115,y:-60,w:60, h:20,type:'crumble'},
-      {x:6245,y:10, w:80, h:20,type:'boost',boostDir:{x:0.1,y:-1},boostPow:17},
-      {x:6280,y:70, w:150,h:20,type:'normal'},
+      // bridge to boss arena
+      {x:5730,y:-38,w:85, h:20,type:'moving',mAxis:'x',mRange:85,mSpeed:2.2},
+      {x:5930,y:-20,w:85, h:20,type:'normal'},
+      // ── BOSS ARENA ──
+      // wide arena floor
+      {x:6080,y:80, w:720,h:30,type:'normal'},
+      // elevated side platforms for jumping on the boss
+      {x:6110,y:-40,w:110,h:20,type:'normal'},
+      {x:6650,y:-40,w:110,h:20,type:'normal'},
+      {x:6370,y:-90,w:110,h:20,type:'normal'},
     ],
     checkpoints:[{x:1358,y:310},{x:2793,y:230},{x:4573,y:30},{x:5533,y:-95}],
+    bossArena:{ spawnX:6280, spawnY:-10, arenaL:6090, arenaR:6790, goalX:6760, goalY:30 },
+  },
+
+  // 7 ── Bouncy Castle ─────────────────────────────────────────
+  { name:'Bouncy Castle', spawn:{x:80,y:380}, goal:{x:4800,y:100}, tip:'Bounce pads give you massive air — use every one!',
+    blocks:[
+      {x:40,y:420,w:130,h:22,type:'normal'},
+      {x:240,y:420,w:80,h:20,type:'bouncy'},
+      {x:390,y:300,w:80,h:20,type:'normal'},
+      {x:540,y:320,w:80,h:20,type:'bouncy'},
+      {x:690,y:200,w:80,h:20,type:'normal'},
+      {x:840,y:220,w:80,h:20,type:'bouncy'},
+      {x:990,y:100,w:90,h:20,type:'normal'},
+      {x:1160,y:100,w:150,h:20,type:'normal'},
+      {x:1390,y:120,w:80,h:20,type:'bouncy'},
+      {x:1540,y:0,  w:90,h:20,type:'normal'},
+      {x:1700,y:20, w:80,h:20,type:'bouncy'},
+      {x:1850,y:-80,w:90,h:20,type:'normal'},
+      {x:2020,y:-80,w:150,h:20,type:'normal'},
+      {x:2250,y:-60,w:80,h:20,type:'bouncy'},
+      {x:2400,y:-160,w:90,h:20,type:'normal'},
+      {x:2560,y:-140,w:80,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:1.8},
+      {x:2760,y:-160,w:80,h:20,type:'bouncy'},
+      {x:2910,y:-260,w:90,h:20,type:'normal'},
+      {x:3080,y:-260,w:150,h:20,type:'normal'},
+      {x:3310,y:-240,w:80,h:20,type:'bouncy'},
+      {x:3460,y:-340,w:90,h:20,type:'normal'},
+      {x:3630,y:-320,w:80,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.0},
+      {x:3830,y:-340,w:80,h:20,type:'bouncy'},
+      {x:3980,y:-440,w:100,h:20,type:'normal'},
+      {x:4180,y:-420,w:80,h:20,type:'normal'},
+      {x:4360,y:-380,w:80,h:20,type:'bouncy'},
+      {x:4510,y:-480,w:90,h:20,type:'normal'},
+      {x:4680,y:-460,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1178,y:60},{x:2038,y:-120},{x:3098,y:-300}],
+  },
+
+  // 8 ── Frozen Lake ───────────────────────────────────────────
+  { name:'Frozen Lake', spawn:{x:80,y:350}, goal:{x:5200,y:100}, tip:'Ice is everywhere — momentum is your enemy and friend!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:260,y:390,w:160,h:20,type:'ice'},
+      {x:490,y:370,w:160,h:20,type:'ice'},
+      {x:720,y:350,w:120,h:20,type:'normal'},
+      {x:910,y:370,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:1.6},
+      {x:1090,y:350,w:160,h:20,type:'ice'},
+      {x:1320,y:330,w:160,h:20,type:'ice'},
+      {x:1550,y:310,w:100,h:20,type:'normal'},
+      {x:1720,y:310,w:150,h:20,type:'normal'},
+      {x:1940,y:330,w:160,h:20,type:'ice'},
+      {x:2170,y:310,w:80,h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:2.0},
+      {x:2360,y:290,w:160,h:20,type:'ice'},
+      {x:2590,y:270,w:100,h:20,type:'normal'},
+      {x:2760,y:270,w:150,h:20,type:'normal'},
+      {x:2990,y:290,w:160,h:20,type:'ice'},
+      {x:3220,y:270,w:80,h:20,type:'bouncy'},
+      {x:3370,y:160,w:120,h:20,type:'normal'},
+      {x:3560,y:180,w:160,h:20,type:'ice'},
+      {x:3790,y:160,w:80,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.4},
+      {x:3990,y:140,w:160,h:20,type:'ice'},
+      {x:4220,y:120,w:100,h:20,type:'normal'},
+      {x:4390,y:120,w:150,h:20,type:'normal'},
+      {x:4620,y:140,w:160,h:20,type:'ice'},
+      {x:4850,y:120,w:80,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.0},
+      {x:5040,y:100,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1568,y:270},{x:2778,y:230},{x:4408,y:80}],
+  },
+
+  // 9 ── Phantom Road ──────────────────────────────────────────
+  { name:'Phantom Road', spawn:{x:80,y:360}, goal:{x:5000,y:100}, tip:'Disappearing blocks reappear — watch the timing!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:380,w:85,h:20,type:'disappear',dCycle:110,dPhase:0},
+      {x:420,y:360,w:85,h:20,type:'disappear',dCycle:110,dPhase:28},
+      {x:580,y:340,w:85,h:20,type:'disappear',dCycle:110,dPhase:56},
+      {x:740,y:320,w:100,h:20,type:'normal'},
+      {x:910,y:320,w:150,h:20,type:'normal'},
+      {x:1140,y:340,w:85,h:20,type:'disappear',dCycle:100,dPhase:0},
+      {x:1300,y:320,w:85,h:20,type:'disappear',dCycle:100,dPhase:25},
+      {x:1460,y:300,w:85,h:20,type:'disappear',dCycle:100,dPhase:50},
+      {x:1620,y:280,w:85,h:20,type:'disappear',dCycle:100,dPhase:75},
+      {x:1780,y:260,w:100,h:20,type:'normal'},
+      {x:1950,y:260,w:150,h:20,type:'normal'},
+      {x:2180,y:280,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.0},
+      {x:2380,y:260,w:85,h:20,type:'disappear',dCycle:90,dPhase:0},
+      {x:2540,y:240,w:85,h:20,type:'disappear',dCycle:90,dPhase:22},
+      {x:2700,y:220,w:85,h:20,type:'disappear',dCycle:90,dPhase:44},
+      {x:2860,y:200,w:100,h:20,type:'normal'},
+      {x:3030,y:200,w:150,h:20,type:'normal'},
+      {x:3260,y:220,w:85,h:20,type:'disappear',dCycle:80,dPhase:0},
+      {x:3420,y:200,w:85,h:20,type:'disappear',dCycle:80,dPhase:20},
+      {x:3580,y:180,w:85,h:20,type:'disappear',dCycle:80,dPhase:40},
+      {x:3740,y:160,w:85,h:20,type:'disappear',dCycle:80,dPhase:60},
+      {x:3900,y:140,w:100,h:20,type:'normal'},
+      {x:4070,y:140,w:150,h:20,type:'normal'},
+      {x:4300,y:160,w:85,h:20,type:'disappear',dCycle:70,dPhase:0},
+      {x:4460,y:140,w:85,h:20,type:'disappear',dCycle:70,dPhase:18},
+      {x:4620,y:120,w:85,h:20,type:'disappear',dCycle:70,dPhase:36},
+      {x:4780,y:100,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:928,y:280},{x:1968,y:220},{x:3048,y:160}],
+  },
+
+  // 10 ── Express Lane ─────────────────────────────────────────
+  { name:'Express Lane', spawn:{x:80,y:370}, goal:{x:5100,y:100}, tip:'Moving platforms never stop — jump at the right moment!',
+    blocks:[
+      {x:40,y:410,w:140,h:22,type:'normal'},
+      {x:260,y:390,w:85,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.0},
+      {x:460,y:370,w:85,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.4,mPhase:1.5},
+      {x:660,y:350,w:85,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.0,mPhase:3.1},
+      {x:860,y:330,w:100,h:20,type:'normal'},
+      {x:1030,y:330,w:150,h:20,type:'normal'},
+      {x:1260,y:350,w:85,h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:2.2},
+      {x:1460,y:330,w:85,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.6,mPhase:1.5},
+      {x:1660,y:310,w:85,h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:2.2,mPhase:3.1},
+      {x:1860,y:290,w:100,h:20,type:'normal'},
+      {x:2030,y:290,w:150,h:20,type:'normal'},
+      {x:2260,y:310,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:2.8},
+      {x:2470,y:290,w:85,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:3.0,mPhase:1.5},
+      {x:2680,y:270,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:2.8,mPhase:3.1},
+      {x:2890,y:250,w:100,h:20,type:'normal'},
+      {x:3060,y:250,w:150,h:20,type:'normal'},
+      {x:3290,y:270,w:85,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:3.2},
+      {x:3490,y:250,w:85,h:20,type:'moving',mAxis:'y',mRange:110,mSpeed:3.0,mPhase:1.5},
+      {x:3690,y:230,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.2,mPhase:3.1},
+      {x:3890,y:210,w:100,h:20,type:'normal'},
+      {x:4060,y:210,w:150,h:20,type:'normal'},
+      {x:4290,y:230,w:85,h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:3.5},
+      {x:4490,y:210,w:85,h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:3.2},
+      {x:4690,y:190,w:85,h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:3.5,mPhase:3.1},
+      {x:4890,y:170,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1048,y:290},{x:2048,y:250},{x:3078,y:210}],
+  },
+
+  // 11 ── Cloud Walk ───────────────────────────────────────────
+  { name:'Cloud Walk', spawn:{x:80,y:360}, goal:{x:5000,y:80}, tip:'Clouds let you through from below — use that to recover!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:380,w:110,h:28,type:'cloud'},
+      {x:445,y:360,w:110,h:28,type:'cloud'},
+      {x:630,y:340,w:110,h:28,type:'cloud'},
+      {x:815,y:320,w:110,h:20,type:'normal'},
+      {x:985,y:320,w:150,h:20,type:'normal'},
+      {x:1215,y:340,w:110,h:28,type:'cloud'},
+      {x:1400,y:320,w:110,h:28,type:'cloud'},
+      {x:1585,y:300,w:80,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:1.8},
+      {x:1780,y:280,w:110,h:28,type:'cloud'},
+      {x:1965,y:260,w:110,h:20,type:'normal'},
+      {x:2135,y:260,w:150,h:20,type:'normal'},
+      {x:2365,y:280,w:110,h:28,type:'cloud'},
+      {x:2550,y:260,w:110,h:28,type:'cloud'},
+      {x:2735,y:240,w:80,h:20,type:'bouncy'},
+      {x:2885,y:130,w:110,h:28,type:'cloud'},
+      {x:3070,y:110,w:110,h:28,type:'cloud'},
+      {x:3255,y:90, w:100,h:20,type:'normal'},
+      {x:3425,y:90, w:150,h:20,type:'normal'},
+      {x:3655,y:110,w:110,h:28,type:'cloud'},
+      {x:3840,y:90, w:110,h:28,type:'cloud'},
+      {x:4025,y:110,w:80,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.0},
+      {x:4220,y:90, w:110,h:28,type:'cloud'},
+      {x:4405,y:70, w:110,h:28,type:'cloud'},
+      {x:4590,y:80, w:100,h:20,type:'normal'},
+      {x:4760,y:80, w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1003,y:280},{x:2153,y:220},{x:3443,y:50}],
+  },
+
+  // 12 ── Minefield ────────────────────────────────────────────
+  { name:'Minefield', spawn:{x:80,y:360}, goal:{x:5000,y:80}, tip:'Read ahead — every spike can be avoided!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:380,w:60,h:20,type:'normal'},
+      {x:260,y:408,w:60,h:20,type:'spike'},
+      {x:390,y:360,w:60,h:20,type:'normal'},
+      {x:520,y:380,w:60,h:20,type:'spike'},
+      {x:520,y:350,w:60,h:20,type:'normal'},
+      {x:650,y:330,w:90,h:20,type:'normal'},
+      {x:820,y:330,w:150,h:20,type:'normal'},
+      {x:1050,y:350,w:55,h:20,type:'spike'},
+      {x:1050,y:320,w:55,h:20,type:'normal'},
+      {x:1185,y:300,w:55,h:20,type:'normal'},
+      {x:1185,y:328,w:55,h:20,type:'spike'},
+      {x:1320,y:280,w:55,h:20,type:'normal'},
+      {x:1455,y:260,w:90,h:20,type:'normal'},
+      {x:1625,y:260,w:150,h:20,type:'normal'},
+      {x:1855,y:280,w:55,h:20,type:'spike'},
+      {x:1855,y:250,w:55,h:20,type:'normal'},
+      {x:1990,y:230,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:1.8},
+      {x:2200,y:210,w:55,h:20,type:'normal'},
+      {x:2200,y:238,w:55,h:20,type:'spike'},
+      {x:2335,y:190,w:55,h:20,type:'normal'},
+      {x:2470,y:170,w:90,h:20,type:'normal'},
+      {x:2640,y:170,w:150,h:20,type:'normal'},
+      {x:2870,y:190,w:80,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.0},
+      {x:3070,y:170,w:55,h:20,type:'spike'},
+      {x:3070,y:140,w:55,h:20,type:'normal'},
+      {x:3205,y:120,w:55,h:20,type:'normal'},
+      {x:3205,y:148,w:55,h:20,type:'spike'},
+      {x:3340,y:100,w:90,h:20,type:'normal'},
+      {x:3510,y:100,w:150,h:20,type:'normal'},
+      {x:3740,y:120,w:80,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.0},
+      {x:3940,y:100,w:55,h:20,type:'normal'},
+      {x:3940,y:128,w:55,h:20,type:'spike'},
+      {x:4075,y:80, w:55,h:20,type:'normal'},
+      {x:4210,y:60, w:90,h:20,type:'normal'},
+      {x:4380,y:60, w:150,h:20,type:'normal'},
+      {x:4610,y:80, w:55,h:20,type:'spike'},
+      {x:4610,y:50, w:55,h:20,type:'normal'},
+      {x:4745,y:30, w:55,h:20,type:'normal'},
+      {x:4880,y:80, w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:838,y:290},{x:1643,y:220},{x:3528,y:60}],
+  },
+
+  // 13 ── Boost Boulevard ──────────────────────────────────────
+  { name:'Boost Boulevard', spawn:{x:80,y:400}, goal:{x:4800,y:50}, tip:'Chain the boost pads to fly across huge gaps!',
+    blocks:[
+      {x:40,y:440,w:140,h:22,type:'normal'},
+      {x:260,y:440,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.5},boostPow:15},
+      {x:440,y:340,w:90,h:20,type:'normal'},
+      {x:600,y:360,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.6},boostPow:14},
+      {x:770,y:250,w:90,h:20,type:'normal'},
+      {x:930,y:270,w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:16},
+      {x:930,y:150,w:90,h:20,type:'normal'},
+      {x:1090,y:150,w:150,h:20,type:'normal'},
+      {x:1320,y:170,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.7},boostPow:15},
+      {x:1500,y:60, w:90,h:20,type:'normal'},
+      {x:1660,y:80, w:80,h:20,type:'boost',boostDir:{x:1,y:-0.5},boostPow:14},
+      {x:1840,y:-10,w:90,h:20,type:'normal'},
+      {x:2010,y:-10,w:150,h:20,type:'normal'},
+      {x:2240,y:10, w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:17},
+      {x:2240,y:-110,w:90,h:20,type:'normal'},
+      {x:2410,y:-90,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.6},boostPow:15},
+      {x:2600,y:-180,w:90,h:20,type:'normal'},
+      {x:2770,y:-180,w:150,h:20,type:'normal'},
+      {x:3000,y:-160,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.5},boostPow:14},
+      {x:3180,y:-250,w:90,h:20,type:'normal'},
+      {x:3350,y:-230,w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:16},
+      {x:3350,y:-350,w:90,h:20,type:'normal'},
+      {x:3520,y:-350,w:150,h:20,type:'normal'},
+      {x:3750,y:-330,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.7},boostPow:15},
+      {x:3940,y:-420,w:90,h:20,type:'normal'},
+      {x:4110,y:-400,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.5},boostPow:14},
+      {x:4300,y:-490,w:90,h:20,type:'normal'},
+      {x:4470,y:-470,w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:16},
+      {x:4470,y:-590,w:90,h:20,type:'normal'},
+      {x:4640,y:-570,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1108,y:110},{x:2028,y:-50},{x:3538,y:-390}],
+  },
+
+  // 14 ── Crumble Canyon ───────────────────────────────────────
+  { name:'Crumble Canyon', spawn:{x:80,y:360}, goal:{x:5000,y:80}, tip:'Move fast — stand still and the floor falls away!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:380,w:80,h:20,type:'crumble'},
+      {x:410,y:360,w:80,h:20,type:'crumble'},
+      {x:560,y:340,w:80,h:20,type:'crumble'},
+      {x:710,y:320,w:100,h:20,type:'normal'},
+      {x:880,y:320,w:150,h:20,type:'normal'},
+      {x:1110,y:340,w:80,h:20,type:'crumble'},
+      {x:1260,y:320,w:80,h:20,type:'crumble'},
+      {x:1410,y:300,w:80,h:20,type:'crumble'},
+      {x:1560,y:280,w:80,h:20,type:'crumble'},
+      {x:1710,y:260,w:100,h:20,type:'normal'},
+      {x:1880,y:260,w:150,h:20,type:'normal'},
+      {x:2110,y:280,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.0},
+      {x:2310,y:260,w:80,h:20,type:'crumble'},
+      {x:2460,y:240,w:80,h:20,type:'crumble'},
+      {x:2610,y:220,w:80,h:20,type:'crumble'},
+      {x:2760,y:200,w:100,h:20,type:'normal'},
+      {x:2930,y:200,w:150,h:20,type:'normal'},
+      {x:3160,y:220,w:80,h:20,type:'crumble'},
+      {x:3310,y:200,w:80,h:20,type:'crumble'},
+      {x:3460,y:180,w:80,h:20,type:'crumble'},
+      {x:3610,y:160,w:80,h:20,type:'crumble'},
+      {x:3760,y:140,w:100,h:20,type:'normal'},
+      {x:3930,y:140,w:150,h:20,type:'normal'},
+      {x:4160,y:160,w:80,h:20,type:'crumble'},
+      {x:4310,y:140,w:80,h:20,type:'crumble'},
+      {x:4460,y:120,w:80,h:20,type:'crumble'},
+      {x:4610,y:100,w:80,h:20,type:'crumble'},
+      {x:4760,y:80, w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:898,y:280},{x:1898,y:220},{x:2948,y:160}],
+  },
+
+  // 15 ── The Remix ────────────────────────────────────────────
+  { name:'The Remix', spawn:{x:80,y:380}, goal:{x:5200,y:80}, tip:'Every block type from the beginning — all together now!',
+    blocks:[
+      {x:40,y:420,w:140,h:22,type:'normal'},
+      {x:260,y:400,w:80,h:20,type:'bouncy'},
+      {x:410,y:280,w:80,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:1.8},
+      {x:610,y:260,w:80,h:20,type:'ice'},
+      {x:770,y:240,w:80,h:20,type:'crumble'},
+      {x:920,y:220,w:100,h:20,type:'normal'},
+      {x:1090,y:220,w:150,h:20,type:'normal'},
+      {x:1320,y:240,w:80,h:20,type:'disappear',dCycle:100,dPhase:0},
+      {x:1480,y:220,w:80,h:20,type:'cloud'},
+      {x:1650,y:200,w:80,h:20,type:'boost',boostDir:{x:1,y:-0.6},boostPow:14},
+      {x:1840,y:100,w:90,h:20,type:'normal'},
+      {x:2010,y:100,w:150,h:20,type:'normal'},
+      {x:2240,y:120,w:80,h:20,type:'crumble'},
+      {x:2390,y:100,w:80,h:20,type:'ice'},
+      {x:2550,y:80, w:80,h:20,type:'moving',mAxis:'y',mRange:90,mSpeed:2.2},
+      {x:2750,y:60, w:80,h:20,type:'disappear',dCycle:90,dPhase:45},
+      {x:2910,y:40, w:90,h:20,type:'normal'},
+      {x:3080,y:40, w:150,h:20,type:'normal'},
+      {x:3310,y:60, w:80,h:20,type:'bouncy'},
+      {x:3460,y:-50,w:80,h:20,type:'cloud'},
+      {x:3640,y:-70,w:80,h:20,type:'spike'},
+      {x:3640,y:-100,w:80,h:20,type:'normal'},
+      {x:3810,y:-120,w:80,h:20,type:'crumble'},
+      {x:3960,y:-140,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.4},
+      {x:4160,y:-160,w:80,h:20,type:'ice'},
+      {x:4320,y:-180,w:90,h:20,type:'normal'},
+      {x:4490,y:-180,w:150,h:20,type:'normal'},
+      {x:4720,y:-160,w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:16},
+      {x:4720,y:-280,w:80,h:20,type:'normal'},
+      {x:4890,y:-260,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1108,y:180},{x:2028,y:60},{x:3098,y:0}],
+  },
+
+  // 16 ── Ice & Spikes ─────────────────────────────────────────
+  { name:'Ice & Spikes', spawn:{x:80,y:360}, goal:{x:5000,y:80}, tip:'Slippery landings near spikes — slow down before the edge!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:400,w:120,h:20,type:'ice'},
+      {x:260,y:428,w:120,h:20,type:'spike'},
+      {x:460,y:380,w:120,h:20,type:'ice'},
+      {x:650,y:360,w:100,h:20,type:'normal'},
+      {x:820,y:360,w:150,h:20,type:'normal'},
+      {x:1050,y:380,w:120,h:20,type:'ice'},
+      {x:1050,y:408,w:120,h:20,type:'spike'},
+      {x:1250,y:360,w:120,h:20,type:'ice'},
+      {x:1440,y:340,w:100,h:20,type:'normal'},
+      {x:1610,y:340,w:150,h:20,type:'normal'},
+      {x:1840,y:360,w:120,h:20,type:'ice'},
+      {x:1930,y:336,w:55,h:20,type:'spike'},
+      {x:2040,y:340,w:120,h:20,type:'ice'},
+      {x:2230,y:320,w:100,h:20,type:'normal'},
+      {x:2400,y:320,w:150,h:20,type:'normal'},
+      {x:2630,y:340,w:120,h:20,type:'ice'},
+      {x:2630,y:316,w:120,h:20,type:'spike'},
+      {x:2830,y:320,w:120,h:20,type:'ice'},
+      {x:3020,y:300,w:100,h:20,type:'normal'},
+      {x:3190,y:300,w:150,h:20,type:'normal'},
+      {x:3420,y:320,w:120,h:20,type:'ice'},
+      {x:3510,y:296,w:55,h:20,type:'spike'},
+      {x:3620,y:300,w:120,h:20,type:'ice'},
+      {x:3810,y:280,w:100,h:20,type:'normal'},
+      {x:3980,y:280,w:150,h:20,type:'normal'},
+      {x:4210,y:300,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.0},
+      {x:4410,y:280,w:120,h:20,type:'ice'},
+      {x:4600,y:260,w:100,h:20,type:'normal'},
+      {x:4770,y:260,w:80,h:20,type:'boost',boostDir:{x:0,y:-1},boostPow:15},
+      {x:4770,y:140,w:80,h:20,type:'normal'},
+      {x:4940,y:120,w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:838,y:320},{x:1628,y:300},{x:3208,y:260}],
+  },
+
+  // 17 ── Mover Madness ────────────────────────────────────────
+  { name:'Mover Madness', spawn:{x:80,y:370}, goal:{x:5200,y:100}, tip:'Everything is moving — ride the rhythm!',
+    blocks:[
+      {x:40,y:410,w:140,h:22,type:'normal'},
+      {x:270,y:390,w:85,h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:2.5},
+      {x:480,y:370,w:85,h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:2.2,mPhase:1.5},
+      {x:690,y:350,w:85,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.8,mPhase:3.0},
+      {x:890,y:330,w:100,h:20,type:'normal'},
+      {x:1060,y:330,w:150,h:20,type:'normal'},
+      {x:1290,y:350,w:85,h:20,type:'moving',mAxis:'y',mRange:120,mSpeed:3.0},
+      {x:1500,y:330,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.0,mPhase:1.5},
+      {x:1710,y:310,w:85,h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:2.8,mPhase:3.0},
+      {x:1910,y:290,w:100,h:20,type:'normal'},
+      {x:2080,y:290,w:150,h:20,type:'normal'},
+      {x:2310,y:310,w:85,h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:3.2},
+      {x:2510,y:290,w:85,h:20,type:'moving',mAxis:'y',mRange:110,mSpeed:3.0,mPhase:1.5},
+      {x:2710,y:270,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.2,mPhase:3.0},
+      {x:2910,y:250,w:100,h:20,type:'normal'},
+      {x:3080,y:250,w:150,h:20,type:'normal'},
+      {x:3310,y:270,w:85,h:20,type:'moving',mAxis:'y',mRange:120,mSpeed:3.4},
+      {x:3510,y:250,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.4,mPhase:1.5},
+      {x:3710,y:230,w:85,h:20,type:'moving',mAxis:'y',mRange:110,mSpeed:3.2,mPhase:3.0},
+      {x:3910,y:210,w:100,h:20,type:'normal'},
+      {x:4080,y:210,w:150,h:20,type:'normal'},
+      {x:4310,y:230,w:85,h:20,type:'moving',mAxis:'x',mRange:120,mSpeed:3.6},
+      {x:4510,y:210,w:85,h:20,type:'moving',mAxis:'y',mRange:100,mSpeed:3.4,mPhase:1.5},
+      {x:4710,y:190,w:85,h:20,type:'moving',mAxis:'x',mRange:130,mSpeed:3.6,mPhase:3.0},
+      {x:4910,y:170,w:80,h:20,type:'bouncy'},
+      {x:4910,y:50, w:80,h:20,type:'normal'},
+      {x:5080,y:70, w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1078,y:290},{x:2098,y:250},{x:3098,y:210}],
+  },
+
+  // 18 ── Zigzag ───────────────────────────────────────────────
+  { name:'Zigzag', spawn:{x:80,y:360}, goal:{x:5000,y:80}, tip:'Up and down — keep your double jump ready!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:360,w:85,h:20,type:'normal'},
+      {x:420,y:410,w:85,h:20,type:'normal'},
+      {x:580,y:340,w:85,h:20,type:'normal'},
+      {x:740,y:400,w:85,h:20,type:'normal'},
+      {x:900,y:320,w:100,h:20,type:'normal'},
+      {x:1070,y:320,w:150,h:20,type:'normal'},
+      {x:1300,y:370,w:85,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:1.8},
+      {x:1470,y:290,w:85,h:20,type:'normal'},
+      {x:1640,y:370,w:85,h:20,type:'normal'},
+      {x:1810,y:270,w:85,h:20,type:'normal'},
+      {x:1980,y:360,w:100,h:20,type:'normal'},
+      {x:2150,y:260,w:150,h:20,type:'normal'},
+      {x:2380,y:330,w:85,h:20,type:'moving',mAxis:'y',mRange:90,mSpeed:2.0},
+      {x:2550,y:240,w:85,h:20,type:'normal'},
+      {x:2720,y:310,w:85,h:20,type:'normal'},
+      {x:2890,y:210,w:85,h:20,type:'normal'},
+      {x:3060,y:300,w:100,h:20,type:'normal'},
+      {x:3230,y:200,w:150,h:20,type:'normal'},
+      {x:3460,y:280,w:85,h:20,type:'moving',mAxis:'y',mRange:90,mSpeed:2.2},
+      {x:3630,y:170,w:85,h:20,type:'normal'},
+      {x:3800,y:250,w:85,h:20,type:'normal'},
+      {x:3970,y:150,w:85,h:20,type:'normal'},
+      {x:4140,y:240,w:100,h:20,type:'normal'},
+      {x:4310,y:140,w:150,h:20,type:'normal'},
+      {x:4540,y:200,w:85,h:20,type:'normal'},
+      {x:4710,y:110,w:85,h:20,type:'normal'},
+      {x:4880,y:80, w:160,h:20,type:'normal'},
+    ],
+    checkpoints:[{x:1088,y:280},{x:2168,y:220},{x:3248,y:160}],
   },
 ];
 
@@ -1083,16 +1877,26 @@ class Game {
   constructor(){
     this.state='menu'; this.level=0; this.deaths=0;
     this.blocks=[]; this.cps=[]; this.goal=null; this.player=null;
+    this.boss=null; this.bossDefeated=false;
     this.cam=new Camera(); this.lastCP=null;
     this._completeT=0; this._tipAlpha=1; this._tipFadeStart=0;
+    this._shake=0;
   }
 
   loadLevel(n){
     this.level=n; this.blocks=[]; this.cps=[]; particles.length=0;
+    this.boss=null; this.bossDefeated=false;
     const lv=LEVELS[n];
     for(const bc of lv.blocks) this.blocks.push(new Block(bc));
     for(const cp of lv.checkpoints) this.cps.push(new Checkpoint(cp.x,cp.y));
-    this.goal=new Goal(lv.goal.x,lv.goal.y);
+    // Boss level: goal locked, boss spawned, goal placed at arena exit
+    if(lv.bossArena){
+      const ba=lv.bossArena;
+      this.goal=new Goal(ba.goalX,ba.goalY,true);
+      this.boss=new Boss(ba.spawnX,ba.spawnY,ba.arenaL,ba.arenaR,ba.bossHp||5);
+    } else {
+      this.goal=new Goal(lv.goal.x,lv.goal.y);
+    }
     this.player=new Player(lv.spawn.x,lv.spawn.y);
     this.lastCP=null;
     this.cam.snap(this.player);
@@ -1110,6 +1914,12 @@ class Game {
         b.dead=false; b._cFall=false; b._cVY=0; b._ct=0; b._cActive=false; b._cShake=0;
         b.x=b._ox; b.y=b._oy;
       }
+    }
+    // respawn boss if not yet defeated
+    if(this.boss&&!this.bossDefeated){
+      const ba=lv.bossArena;
+      this.boss=new Boss(ba.spawnX,ba.spawnY,ba.arenaL,ba.arenaR,ba.bossHp||5);
+      this.goal.locked=true;
     }
   }
 
@@ -1135,11 +1945,13 @@ class Game {
     for(const b of this.blocks) b.update();
     for(const cp of this.cps) cp.update();
     if(this.goal) this.goal.update();
+    if(this.boss&&!this.boss.dead) this.boss.update(this.player,this);
     if(this.player){
       this.player.update(this.blocks,this.cps,this.goal,this);
       if(this.player.dead) this.state='dead';
     }
     updateParticles();
+    if(this._shake>0) this._shake--;
     if(this.player&&!this.player.dead) this.cam.follow(this.player);
     // tip fade
     if(this._tipFadeStart>0){ this._tipFadeStart--; }
@@ -1150,12 +1962,17 @@ class Game {
     ctx.clearRect(0,0,W,H);
     if(this.state==='menu'){ drawMenu(); return; }
     const {x:cx,y:cy}=this.cam;
+    const sx=this._shake>0?rand(-this._shake*0.5,this._shake*0.5):0;
+    const sy=this._shake>0?rand(-this._shake*0.3,this._shake*0.3):0;
+    if(this._shake>0){ctx.save();ctx.translate(sx,sy);}
     drawBG(cx,cy);
     for(const b of this.blocks) b.draw(cx,cy);
     for(const cp of this.cps) cp.draw(cx,cy);
     if(this.goal) this.goal.draw(cx,cy);
     drawParticles(cx,cy);
+    if(this.boss&&!this.boss.dead) this.boss.draw(cx,cy);
     if(this.player) this.player.draw(cx,cy);
+    if(this._shake>0) ctx.restore();
     if(this.state!=='menu') drawHUD(this);
     if(this.state==='dead') drawDead(this.deaths);
     if(this.state==='levelcomplete') drawComplete(this);
