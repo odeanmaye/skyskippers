@@ -38,27 +38,27 @@ const Input = {
     document.addEventListener('keydown', e => {
       if(!this._held[e.code]) this._just[e.code]=true;
       this._held[e.code]=true;
-      if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+      if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'].includes(e.code)) e.preventDefault();
     });
     document.addEventListener('keyup', e => { this._held[e.code]=false; });
   },
   held(c){ return !!this._held[c]; },
   just(c){ return !!this._just[c]; },
   clear(){ this._just={}; },
-  left(){  return this.held('ArrowLeft')  || this.held('KeyA'); },
-  right(){ return this.held('ArrowRight') || this.held('KeyD'); },
-  jump(){  return this.held('ArrowUp')    || this.held('KeyW') || this.held('Space'); },
-  jumpJust(){ return this.just('ArrowUp') || this.just('KeyW') || this.just('Space'); },
+  left(){  return this.held('ArrowLeft'); },
+  right(){ return this.held('ArrowRight'); },
+  jump(){  return this.held('ArrowUp') || this.held('Space'); },
+  jumpJust(){ return this.just('ArrowUp') || this.just('Space'); },
   anyJust(){ return this.jumpJust() || this.just('Enter'); },
 };
 Input.init();
 
-// Player 2 controls: I=jump, J=left, L=right
+// Player 2 controls: W=jump, A=left, D=right
 const Input2 = {
-  left(){      return Input.held('KeyJ'); },
-  right(){     return Input.held('KeyL'); },
-  jump(){      return Input.held('KeyI'); },
-  jumpJust(){  return Input.just('KeyI'); },
+  left(){      return Input.held('KeyA'); },
+  right(){     return Input.held('KeyD'); },
+  jump(){      return Input.held('KeyW'); },
+  jumpJust(){  return Input.just('KeyW'); },
 };
 
 // ── MATH ──
@@ -2977,6 +2977,515 @@ const LEVELS = [
     checkpoints:[{x:1208,y:310},{x:2723,y:215},{x:4503,y:10},{x:5463,y:-115}],
     bossArena:{ spawnX:6400, spawnY:-30, arenaL:6070, arenaR:6950, goalX:6910, goalY:10, bossHp:8 },
   },
+
+  // 51 ── Bounce Factory ──────────────────────────────────────────
+  { name:'Bounce Factory', spawn:{x:80,y:380}, goal:{x:5000,y:40}, tip:'Bouncy chains launch you skyward — ride every one!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:390,w:80,h:20,type:'bouncy'},
+      {x:440,y:360,w:80,h:20,type:'normal'},
+      {x:610,y:345,w:80,h:20,type:'bouncy'},
+      {x:780,y:310,w:80,h:20,type:'normal'},
+      {x:950,y:295,w:80,h:20,type:'bouncy'},
+      {x:1120,y:265,w:100,h:22,type:'normal'},
+      {x:1320,y:255,w:80,h:20,type:'bouncy'},
+      {x:1490,y:215,w:80,h:20,type:'normal'},
+      {x:1660,y:200,w:80,h:20,type:'bouncy'},
+      {x:1830,y:160,w:80,h:20,type:'normal'},
+      {x:2000,y:148,w:100,h:22,type:'normal'},
+      {x:2200,y:138,w:80,h:20,type:'bouncy'},
+      {x:2370,y:98,w:80,h:20,type:'normal'},
+      {x:2540,y:88,w:80,h:20,type:'bouncy'},
+      {x:2710,y:68,w:80,h:20,type:'moving',mAxis:'y',mRange:60,mSpeed:1.8},
+      {x:2890,y:78,w:80,h:20,type:'bouncy'},
+      {x:3060,y:48,w:80,h:20,type:'normal'},
+      {x:3230,y:38,w:100,h:22,type:'normal'},
+      {x:3430,y:28,w:80,h:20,type:'bouncy'},
+      {x:3600,y:8,w:80,h:20,type:'normal'},
+      {x:3770,y:-2,w:80,h:20,type:'bouncy'},
+      {x:3940,y:-18,w:80,h:20,type:'normal'},
+      {x:4110,y:-22,w:80,h:20,type:'bouncy'},
+      {x:4280,y:-32,w:80,h:20,type:'normal'},
+      {x:4460,y:-22,w:80,h:20,type:'bouncy'},
+      {x:4640,y:-8,w:80,h:20,type:'normal'},
+      {x:4820,y:40,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1138,y:225},{x:2018,y:108},{x:3248,y:-2}],
+  },
+
+  // 52 ── Mirror Run ───────────────────────────────────────────────
+  { name:'Mirror Run', spawn:{x:80,y:370}, goal:{x:5100,y:80}, tip:'Familiar shapes — but faster and further apart!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:270,y:375,w:90,h:20,type:'moving',mAxis:'x',mRange:70,mSpeed:2.0},
+      {x:460,y:360,w:90,h:20,type:'ice'},
+      {x:640,y:345,w:90,h:20,type:'normal'},
+      {x:820,y:330,w:90,h:20,type:'moving',mAxis:'y',mRange:70,mSpeed:2.0},
+      {x:1010,y:315,w:90,h:20,type:'ice'},
+      {x:1200,y:300,w:110,h:22,type:'normal'},
+      {x:1400,y:280,w:90,h:20,type:'bouncy'},
+      {x:1580,y:220,w:90,h:20,type:'ice'},
+      {x:1760,y:205,w:90,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.2},
+      {x:1960,y:190,w:90,h:20,type:'ice'},
+      {x:2150,y:175,w:110,h:22,type:'normal'},
+      {x:2350,y:160,w:90,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.4},
+      {x:2550,y:145,w:90,h:20,type:'crumble'},
+      {x:2730,y:130,w:90,h:20,type:'crumble'},
+      {x:2910,y:115,w:90,h:20,type:'normal'},
+      {x:3090,y:100,w:90,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.4},
+      {x:3290,y:88,w:110,h:22,type:'normal'},
+      {x:3490,y:76,w:90,h:20,type:'disappear',dCycle:75,dPhase:0},
+      {x:3660,y:68,w:90,h:20,type:'disappear',dCycle:75,dPhase:37},
+      {x:3830,y:58,w:90,h:20,type:'normal'},
+      {x:4010,y:48,w:90,h:20,type:'moving',mAxis:'y',mRange:65,mSpeed:2.5},
+      {x:4200,y:45,w:90,h:20,type:'ice'},
+      {x:4380,y:40,w:90,h:20,type:'normal'},
+      {x:4560,y:38,w:90,h:20,type:'normal'},
+      {x:4940,y:80,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1218,y:260},{x:2168,y:135},{x:3308,y:48}],
+  },
+
+  // 53 ── Storm Ridge ──────────────────────────────────────────────
+  { name:'Storm Ridge', spawn:{x:80,y:370}, goal:{x:5100,y:80}, tip:'Moving platforms surge through the storm — ride the gusts!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:270,y:370,w:90,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.4},
+      {x:480,y:355,w:80,h:20,type:'normal'},
+      {x:480,y:330,w:45,h:20,type:'spike'},
+      {x:650,y:340,w:90,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.2},
+      {x:850,y:320,w:80,h:20,type:'normal'},
+      {x:850,y:295,w:45,h:20,type:'spike'},
+      {x:1030,y:310,w:90,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.5},
+      {x:1230,y:290,w:110,h:22,type:'normal'},
+      {x:1430,y:275,w:80,h:20,type:'normal'},
+      {x:1430,y:250,w:45,h:20,type:'spike'},
+      {x:1600,y:260,w:90,h:20,type:'moving',mAxis:'y',mRange:90,mSpeed:2.4},
+      {x:1800,y:245,w:80,h:20,type:'normal'},
+      {x:1970,y:230,w:90,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.6},
+      {x:2170,y:215,w:110,h:22,type:'normal'},
+      {x:2370,y:200,w:80,h:20,type:'normal'},
+      {x:2370,y:175,w:45,h:20,type:'spike'},
+      {x:2540,y:185,w:90,h:20,type:'moving',mAxis:'y',mRange:85,mSpeed:2.5},
+      {x:2740,y:170,w:80,h:20,type:'normal'},
+      {x:2910,y:155,w:90,h:20,type:'moving',mAxis:'x',mRange:115,mSpeed:2.7},
+      {x:3110,y:140,w:110,h:22,type:'normal'},
+      {x:3310,y:125,w:90,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.6},
+      {x:3510,y:110,w:80,h:20,type:'normal'},
+      {x:3680,y:95,w:90,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.8},
+      {x:3880,y:82,w:80,h:20,type:'normal'},
+      {x:4060,y:75,w:90,h:20,type:'moving',mAxis:'y',mRange:70,mSpeed:2.5},
+      {x:4260,y:68,w:80,h:20,type:'normal'},
+      {x:4440,y:60,w:80,h:20,type:'normal'},
+      {x:4930,y:80,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1248,y:250},{x:2188,y:175},{x:3128,y:100}],
+  },
+
+  // 54 ── Phantom Web ──────────────────────────────────────────────
+  { name:'Phantom Web', spawn:{x:80,y:370}, goal:{x:5100,y:80}, tip:'Clouds and ghosts weave together — feel the rhythm!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:260,y:370,w:85,h:22,type:'cloud'},
+      {x:425,y:352,w:85,h:20,type:'disappear',dCycle:85,dPhase:0},
+      {x:590,y:365,w:85,h:22,type:'cloud'},
+      {x:755,y:345,w:85,h:20,type:'disappear',dCycle:85,dPhase:42},
+      {x:920,y:358,w:85,h:22,type:'cloud'},
+      {x:1085,y:335,w:110,h:22,type:'normal'},
+      {x:1285,y:320,w:85,h:22,type:'cloud'},
+      {x:1450,y:302,w:85,h:20,type:'disappear',dCycle:80,dPhase:10},
+      {x:1615,y:315,w:85,h:22,type:'cloud'},
+      {x:1780,y:295,w:85,h:20,type:'disappear',dCycle:80,dPhase:50},
+      {x:1945,y:280,w:110,h:22,type:'normal'},
+      {x:2145,y:265,w:85,h:22,type:'cloud'},
+      {x:2310,y:248,w:85,h:20,type:'disappear',dCycle:75,dPhase:15},
+      {x:2475,y:260,w:85,h:22,type:'cloud'},
+      {x:2640,y:240,w:85,h:20,type:'moving',mAxis:'y',mRange:70,mSpeed:1.8},
+      {x:2825,y:225,w:85,h:22,type:'cloud'},
+      {x:2990,y:208,w:110,h:22,type:'normal'},
+      {x:3190,y:195,w:85,h:20,type:'disappear',dCycle:70,dPhase:0},
+      {x:3355,y:180,w:85,h:22,type:'cloud'},
+      {x:3520,y:165,w:85,h:20,type:'disappear',dCycle:70,dPhase:35},
+      {x:3685,y:150,w:85,h:22,type:'cloud'},
+      {x:3850,y:135,w:85,h:20,type:'disappear',dCycle:65,dPhase:17},
+      {x:4015,y:120,w:110,h:22,type:'normal'},
+      {x:4215,y:108,w:85,h:22,type:'cloud'},
+      {x:4380,y:95,w:85,h:20,type:'disappear',dCycle:60,dPhase:30},
+      {x:4545,y:82,w:85,h:22,type:'cloud'},
+      {x:4720,y:72,w:85,h:22,type:'cloud'},
+      {x:4900,y:80,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1103,y:295},{x:1963,y:240},{x:3008,y:168}],
+  },
+
+  // 55 ── Turbo Canyon ─────────────────────────────────────────────
+  { name:'Turbo Canyon', spawn:{x:80,y:390}, goal:{x:5100,y:60}, tip:'Boost pads everywhere — chain them and fly through the canyon!',
+    blocks:[
+      {x:40,y:410,w:140,h:22,type:'normal'},
+      {x:260,y:408,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:455,y:395,w:75,h:22,type:'normal'},
+      {x:620,y:393,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:815,y:368,w:75,h:22,type:'normal'},
+      {x:980,y:366,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:1175,y:358,w:75,h:22,type:'normal'},
+      {x:1340,y:355,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.4},boostPow:15},
+      {x:1545,y:320,w:100,h:22,type:'normal'},
+      {x:1735,y:318,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:1930,y:308,w:75,h:22,type:'normal'},
+      {x:2095,y:305,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:2290,y:278,w:75,h:22,type:'normal'},
+      {x:2455,y:275,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:2650,y:265,w:100,h:22,type:'normal'},
+      {x:2840,y:262,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.4},boostPow:15},
+      {x:3045,y:228,w:75,h:22,type:'normal'},
+      {x:3210,y:225,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:3405,y:215,w:75,h:22,type:'normal'},
+      {x:3570,y:212,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:3765,y:185,w:100,h:22,type:'normal'},
+      {x:3955,y:182,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:4150,y:172,w:75,h:22,type:'normal'},
+      {x:4315,y:168,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:4510,y:140,w:75,h:22,type:'normal'},
+      {x:4675,y:137,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:4870,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1563,y:278},{x:2668,y:225},{x:3783,y:145}],
+  },
+
+  // 56 ── Frozen Fury ──────────────────────────────────────────────
+  { name:'Frozen Fury', spawn:{x:80,y:375}, goal:{x:5100,y:60}, tip:'Ice meets speed — brake way earlier than you think!',
+    blocks:[
+      {x:40,y:395,w:140,h:22,type:'normal'},
+      {x:260,y:375,w:120,h:20,type:'ice'},
+      {x:460,y:358,w:90,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.4},
+      {x:660,y:345,w:120,h:20,type:'ice'},
+      {x:860,y:330,w:90,h:20,type:'moving',mAxis:'y',mRange:75,mSpeed:2.2},
+      {x:1060,y:318,w:120,h:22,type:'normal'},
+      {x:1260,y:305,w:120,h:20,type:'ice'},
+      {x:1460,y:288,w:90,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.6},
+      {x:1660,y:275,w:120,h:20,type:'ice'},
+      {x:1860,y:260,w:90,h:20,type:'moving',mAxis:'y',mRange:85,mSpeed:2.5},
+      {x:2060,y:248,w:120,h:22,type:'normal'},
+      {x:2260,y:235,w:120,h:20,type:'ice'},
+      {x:2460,y:218,w:90,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.8},
+      {x:2660,y:205,w:120,h:20,type:'ice'},
+      {x:2860,y:190,w:90,h:20,type:'moving',mAxis:'y',mRange:80,mSpeed:2.6},
+      {x:3060,y:178,w:120,h:22,type:'normal'},
+      {x:3260,y:165,w:120,h:20,type:'ice'},
+      {x:3460,y:148,w:90,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:3.0},
+      {x:3660,y:135,w:120,h:20,type:'ice'},
+      {x:3860,y:120,w:90,h:20,type:'moving',mAxis:'y',mRange:70,mSpeed:2.8},
+      {x:4060,y:108,w:120,h:22,type:'normal'},
+      {x:4260,y:95,w:120,h:20,type:'ice'},
+      {x:4460,y:80,w:90,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:3.0},
+      {x:4660,y:65,w:120,h:20,type:'ice'},
+      {x:4880,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1078,y:278},{x:2078,y:208},{x:3078,y:138}],
+  },
+
+  // 57 ── The Descent ──────────────────────────────────────────────
+  { name:'The Descent', spawn:{x:80,y:50}, goal:{x:4800,y:480}, tip:'You start at the top — carefully drop your way to the bottom!',
+    blocks:[
+      {x:40,y:80,w:140,h:22,type:'normal'},
+      {x:260,y:100,w:90,h:20,type:'normal'},
+      {x:430,y:130,w:90,h:22,type:'cloud'},
+      {x:600,y:160,w:90,h:20,type:'normal'},
+      {x:770,y:195,w:90,h:22,type:'cloud'},
+      {x:940,y:225,w:90,h:20,type:'normal'},
+      {x:1110,y:255,w:110,h:22,type:'normal'},
+      {x:1310,y:285,w:90,h:20,type:'moving',mAxis:'y',mRange:60,mSpeed:1.6},
+      {x:1500,y:315,w:90,h:20,type:'normal'},
+      {x:1670,y:345,w:90,h:22,type:'cloud'},
+      {x:1840,y:370,w:90,h:20,type:'crumble'},
+      {x:2010,y:390,w:90,h:22,type:'normal'},
+      {x:2180,y:400,w:110,h:22,type:'normal'},
+      {x:2380,y:415,w:90,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.0},
+      {x:2580,y:428,w:90,h:20,type:'normal'},
+      {x:2750,y:440,w:90,h:22,type:'cloud'},
+      {x:2920,y:448,w:90,h:20,type:'crumble'},
+      {x:3090,y:455,w:90,h:20,type:'normal'},
+      {x:3260,y:460,w:110,h:22,type:'normal'},
+      {x:3460,y:460,w:90,h:20,type:'moving',mAxis:'y',mRange:50,mSpeed:1.8},
+      {x:3650,y:462,w:90,h:20,type:'normal'},
+      {x:3820,y:465,w:90,h:20,type:'ice'},
+      {x:3990,y:468,w:90,h:20,type:'ice'},
+      {x:4160,y:470,w:90,h:20,type:'normal'},
+      {x:4340,y:472,w:90,h:20,type:'normal'},
+      {x:4620,y:480,w:280,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1128,y:215},{x:2198,y:360},{x:3278,y:420}],
+  },
+
+  // 58 ── Platform Panic ───────────────────────────────────────────
+  { name:'Platform Panic', spawn:{x:80,y:380}, goal:{x:5100,y:60}, tip:'Chaos — every block is random. Breathe and read ahead!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:270,y:380,w:80,h:20,type:'bouncy'},
+      {x:450,y:320,w:80,h:20,type:'ice'},
+      {x:620,y:310,w:80,h:20,type:'moving',mAxis:'x',mRange:80,mSpeed:2.2},
+      {x:820,y:295,w:80,h:20,type:'crumble'},
+      {x:990,y:280,w:80,h:22,type:'normal'},
+      {x:1160,y:265,w:80,h:20,type:'disappear',dCycle:80,dPhase:0},
+      {x:1330,y:250,w:80,h:22,type:'cloud'},
+      {x:1500,y:235,w:110,h:22,type:'normal'},
+      {x:1700,y:220,w:80,h:20,type:'moving',mAxis:'y',mRange:75,mSpeed:2.3},
+      {x:1890,y:205,w:80,h:20,type:'crumble'},
+      {x:2060,y:190,w:80,h:20,type:'ice'},
+      {x:2230,y:175,w:80,h:20,type:'bouncy'},
+      {x:2400,y:135,w:80,h:20,type:'disappear',dCycle:75,dPhase:20},
+      {x:2570,y:148,w:80,h:22,type:'cloud'},
+      {x:2740,y:138,w:110,h:22,type:'normal'},
+      {x:2940,y:122,w:80,h:20,type:'moving',mAxis:'x',mRange:95,mSpeed:2.5},
+      {x:3140,y:110,w:80,h:20,type:'crumble'},
+      {x:3310,y:100,w:80,h:20,type:'ice'},
+      {x:3480,y:90,w:80,h:20,type:'bouncy'},
+      {x:3650,y:58,w:80,h:20,type:'normal'},
+      {x:3820,y:75,w:80,h:20,type:'disappear',dCycle:70,dPhase:10},
+      {x:3990,y:62,w:110,h:22,type:'normal'},
+      {x:4190,y:55,w:80,h:20,type:'moving',mAxis:'y',mRange:65,mSpeed:2.6},
+      {x:4380,y:48,w:80,h:20,type:'crumble'},
+      {x:4550,y:42,w:80,h:20,type:'normal'},
+      {x:4720,y:38,w:80,h:20,type:'ice'},
+      {x:4900,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1518,y:195},{x:2758,y:98},{x:4008,y:22}],
+  },
+
+  // 59 ── Crumble World ────────────────────────────────────────────
+  { name:'Crumble World', spawn:{x:80,y:360}, goal:{x:5400,y:60}, tip:'Every platform falls — never stop, never look down!',
+    blocks:[
+      {x:40,y:380,w:140,h:22,type:'normal'},
+      {x:255,y:362,w:650,h:20,type:'crumble'},
+      {x:1000,y:355,w:140,h:22,type:'normal'},
+      {x:1215,y:338,w:550,h:20,type:'crumble'},
+      {x:1860,y:330,w:140,h:22,type:'normal'},
+      {x:2070,y:305,w:90,h:20,type:'bouncy'},
+      {x:2250,y:228,w:90,h:20,type:'normal'},
+      {x:2430,y:218,w:600,h:20,type:'crumble'},
+      {x:3125,y:210,w:140,h:22,type:'normal'},
+      {x:3340,y:190,w:500,h:20,type:'crumble'},
+      {x:3935,y:182,w:140,h:22,type:'normal'},
+      {x:4145,y:160,w:80,h:20,type:'moving',mAxis:'y',mRange:55,mSpeed:2.2},
+      {x:4340,y:148,w:500,h:20,type:'crumble'},
+      {x:4935,y:138,w:140,h:22,type:'normal'},
+      {x:5080,y:108,w:100,h:20,type:'normal'},
+      {x:5280,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1018,y:315},{x:3143,y:170},{x:4953,y:98}],
+  },
+
+  // 60 ── Cloud Kingdom ────────────────────────────────────────────
+  { name:'Cloud Kingdom', spawn:{x:80,y:350}, goal:{x:5200,y:60}, tip:'An entire kingdom in the clouds — explore high and low!',
+    blocks:[
+      {x:40,y:370,w:140,h:22,type:'normal'},
+      {x:260,y:348,w:110,h:22,type:'cloud'},
+      {x:440,y:328,w:110,h:22,type:'cloud'},
+      {x:620,y:308,w:110,h:22,type:'cloud'},
+      {x:800,y:290,w:110,h:22,type:'cloud'},
+      {x:980,y:278,w:130,h:22,type:'normal'},
+      {x:1180,y:268,w:110,h:22,type:'cloud'},
+      {x:1360,y:248,w:110,h:22,type:'cloud'},
+      {x:1540,y:230,w:110,h:20,type:'moving',mAxis:'y',mRange:70,mSpeed:1.6},
+      {x:1730,y:218,w:110,h:22,type:'cloud'},
+      {x:1910,y:200,w:130,h:22,type:'normal'},
+      {x:2110,y:188,w:110,h:22,type:'cloud'},
+      {x:2110,y:140,w:110,h:22,type:'cloud'},
+      {x:2290,y:170,w:110,h:22,type:'cloud'},
+      {x:2470,y:152,w:110,h:22,type:'cloud'},
+      {x:2650,y:140,w:130,h:22,type:'normal'},
+      {x:2850,y:128,w:110,h:22,type:'cloud'},
+      {x:3030,y:110,w:110,h:20,type:'moving',mAxis:'x',mRange:80,mSpeed:1.8},
+      {x:3230,y:98,w:110,h:22,type:'cloud'},
+      {x:3410,y:80,w:110,h:22,type:'cloud'},
+      {x:3590,y:68,w:130,h:22,type:'normal'},
+      {x:3790,y:58,w:110,h:22,type:'cloud'},
+      {x:3970,y:48,w:110,h:22,type:'cloud'},
+      {x:4150,y:38,w:110,h:22,type:'cloud'},
+      {x:4330,y:28,w:110,h:22,type:'cloud'},
+      {x:4510,y:18,w:110,h:20,type:'moving',mAxis:'y',mRange:60,mSpeed:2.0},
+      {x:4710,y:12,w:110,h:22,type:'cloud'},
+      {x:4890,y:8,w:110,h:22,type:'cloud'},
+      {x:5080,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:998,y:238},{x:1928,y:160},{x:2668,y:100}],
+  },
+
+  // 61 ── Spike Gauntlet II ────────────────────────────────────────
+  { name:'Spike Gauntlet II', spawn:{x:80,y:370}, goal:{x:5100,y:60}, tip:'Spikes doubled — every safe spot is precious!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:270,y:375,w:70,h:20,type:'normal'},
+      {x:270,y:350,w:35,h:20,type:'spike'},
+      {x:270,y:400,w:35,h:20,type:'spike'},
+      {x:420,y:360,w:70,h:20,type:'normal'},
+      {x:570,y:345,w:70,h:20,type:'normal'},
+      {x:570,y:320,w:35,h:20,type:'spike'},
+      {x:720,y:355,w:70,h:20,type:'normal'},
+      {x:870,y:335,w:80,h:22,type:'normal'},
+      {x:1040,y:320,w:70,h:20,type:'normal'},
+      {x:1040,y:295,w:35,h:20,type:'spike'},
+      {x:1040,y:345,w:35,h:20,type:'spike'},
+      {x:1190,y:310,w:70,h:20,type:'normal'},
+      {x:1340,y:295,w:80,h:22,type:'normal'},
+      {x:1510,y:278,w:70,h:20,type:'moving',mAxis:'y',mRange:50,mSpeed:1.8},
+      {x:1680,y:265,w:70,h:20,type:'normal'},
+      {x:1680,y:240,w:35,h:20,type:'spike'},
+      {x:1830,y:252,w:70,h:20,type:'normal'},
+      {x:1980,y:240,w:80,h:22,type:'normal'},
+      {x:2150,y:225,w:70,h:20,type:'normal'},
+      {x:2150,y:200,w:35,h:20,type:'spike'},
+      {x:2150,y:250,w:35,h:20,type:'spike'},
+      {x:2300,y:212,w:70,h:20,type:'normal'},
+      {x:2450,y:200,w:80,h:22,type:'normal'},
+      {x:2620,y:185,w:70,h:20,type:'moving',mAxis:'x',mRange:80,mSpeed:2.2},
+      {x:2820,y:172,w:70,h:20,type:'normal'},
+      {x:2820,y:147,w:35,h:20,type:'spike'},
+      {x:2970,y:160,w:70,h:20,type:'normal'},
+      {x:3120,y:148,w:80,h:22,type:'normal'},
+      {x:3290,y:135,w:70,h:20,type:'normal'},
+      {x:3290,y:110,w:35,h:20,type:'spike'},
+      {x:3290,y:160,w:35,h:20,type:'spike'},
+      {x:3440,y:122,w:70,h:20,type:'normal'},
+      {x:3590,y:110,w:80,h:22,type:'normal'},
+      {x:3760,y:98,w:70,h:20,type:'normal'},
+      {x:3910,y:88,w:70,h:20,type:'moving',mAxis:'y',mRange:55,mSpeed:2.0},
+      {x:4060,y:78,w:70,h:20,type:'normal'},
+      {x:4210,y:68,w:80,h:22,type:'normal'},
+      {x:4380,y:58,w:70,h:20,type:'normal'},
+      {x:4380,y:33,w:35,h:20,type:'spike'},
+      {x:4530,y:48,w:70,h:20,type:'normal'},
+      {x:4700,y:38,w:80,h:20,type:'normal'},
+      {x:4900,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1358,y:255},{x:2468,y:160},{x:3608,y:70}],
+  },
+
+  // 62 ── Speed Rush II ────────────────────────────────────────────
+  { name:'Speed Rush II', spawn:{x:80,y:380}, goal:{x:5200,y:60}, tip:'Boosts back-to-back — commit to every launch!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:260,y:398,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.2},boostPow:16},
+      {x:470,y:368,w:75,h:22,type:'normal'},
+      {x:635,y:365,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:840,y:332,w:75,h:22,type:'normal'},
+      {x:1005,y:328,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:1210,y:318,w:75,h:22,type:'normal'},
+      {x:1375,y:314,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.4},boostPow:15},
+      {x:1580,y:278,w:100,h:22,type:'normal'},
+      {x:1770,y:274,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:1975,y:264,w:75,h:22,type:'normal'},
+      {x:2140,y:260,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:2345,y:228,w:75,h:22,type:'normal'},
+      {x:2510,y:224,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:2715,y:214,w:75,h:22,type:'normal'},
+      {x:2880,y:210,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.4},boostPow:15},
+      {x:3085,y:174,w:100,h:22,type:'normal'},
+      {x:3275,y:170,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:3480,y:160,w:75,h:22,type:'normal'},
+      {x:3645,y:156,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:3850,y:124,w:75,h:22,type:'normal'},
+      {x:4015,y:120,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:4220,y:110,w:75,h:22,type:'normal'},
+      {x:4385,y:106,w:75,h:20,type:'boost',boostDir:{x:1,y:-0.3},boostPow:15},
+      {x:4590,y:74,w:75,h:22,type:'normal'},
+      {x:4755,y:70,w:75,h:20,type:'boost',boostDir:{x:1,y:0},boostPow:16},
+      {x:4960,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1598,y:238},{x:3103,y:134},{x:4608,y:34}],
+  },
+
+  // 63 ── The Void II ──────────────────────────────────────────────
+  { name:'The Void II', spawn:{x:80,y:370}, goal:{x:5500,y:60}, tip:'Even bigger gaps — plan your double jump every time!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:380,y:375,w:80,h:20,type:'normal'},
+      {x:700,y:358,w:80,h:20,type:'bouncy'},
+      {x:900,y:278,w:80,h:20,type:'normal'},
+      {x:1240,y:268,w:80,h:20,type:'normal'},
+      {x:1580,y:255,w:80,h:20,type:'moving',mAxis:'x',mRange:110,mSpeed:2.0},
+      {x:1940,y:245,w:80,h:20,type:'normal'},
+      {x:2280,y:235,w:80,h:22,type:'normal'},
+      {x:2620,y:225,w:80,h:22,type:'cloud'},
+      {x:2960,y:215,w:80,h:20,type:'normal'},
+      {x:3300,y:200,w:80,h:20,type:'moving',mAxis:'y',mRange:85,mSpeed:2.2},
+      {x:3640,y:195,w:80,h:20,type:'normal'},
+      {x:3980,y:185,w:80,h:20,type:'bouncy'},
+      {x:4180,y:120,w:80,h:20,type:'normal'},
+      {x:4520,y:110,w:80,h:20,type:'normal'},
+      {x:4860,y:100,w:80,h:20,type:'moving',mAxis:'x',mRange:100,mSpeed:2.5},
+      {x:5200,y:90,w:80,h:20,type:'normal'},
+      {x:5380,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:2298,y:195},{x:3658,y:155},{x:4198,y:80}],
+  },
+
+  // 64 ── Ice Cavern ───────────────────────────────────────────────
+  { name:'Ice Cavern', spawn:{x:80,y:370}, goal:{x:5100,y:60}, tip:'Deep in the ice cave — slide carefully or fall forever!',
+    blocks:[
+      {x:40,y:390,w:140,h:22,type:'normal'},
+      {x:260,y:375,w:140,h:20,type:'ice'},
+      {x:475,y:358,w:140,h:20,type:'ice'},
+      {x:690,y:342,w:100,h:22,type:'normal'},
+      {x:865,y:328,w:140,h:20,type:'ice'},
+      {x:1080,y:312,w:140,h:20,type:'ice'},
+      {x:1295,y:295,w:100,h:22,type:'normal'},
+      {x:1470,y:278,w:90,h:20,type:'moving',mAxis:'x',mRange:90,mSpeed:2.2},
+      {x:1670,y:260,w:140,h:20,type:'ice'},
+      {x:1885,y:244,w:140,h:20,type:'ice'},
+      {x:2100,y:228,w:100,h:22,type:'normal'},
+      {x:2275,y:210,w:140,h:20,type:'ice'},
+      {x:2490,y:194,w:140,h:20,type:'ice'},
+      {x:2705,y:178,w:100,h:22,type:'normal'},
+      {x:2880,y:160,w:90,h:20,type:'moving',mAxis:'y',mRange:70,mSpeed:2.4},
+      {x:3080,y:145,w:140,h:20,type:'ice'},
+      {x:3295,y:130,w:140,h:20,type:'ice'},
+      {x:3510,y:115,w:100,h:22,type:'normal'},
+      {x:3685,y:98,w:140,h:20,type:'ice'},
+      {x:3900,y:82,w:140,h:20,type:'ice'},
+      {x:4115,y:68,w:100,h:22,type:'normal'},
+      {x:4290,y:52,w:90,h:20,type:'moving',mAxis:'x',mRange:80,mSpeed:2.5},
+      {x:4490,y:38,w:140,h:20,type:'ice'},
+      {x:4705,y:25,w:140,h:20,type:'ice'},
+      {x:4920,y:60,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1313,y:255},{x:2718,y:138},{x:3528,y:75}],
+  },
+
+  // 65 ── Ricochet ─────────────────────────────────────────────────
+  { name:'Ricochet', spawn:{x:80,y:380}, goal:{x:5100,y:40}, tip:'Bounce off walls of bouncers — control your trajectory!',
+    blocks:[
+      {x:40,y:400,w:140,h:22,type:'normal'},
+      {x:270,y:385,w:80,h:20,type:'bouncy'},
+      {x:450,y:360,w:80,h:20,type:'normal'},
+      {x:620,y:348,w:80,h:20,type:'bouncy'},
+      {x:800,y:318,w:80,h:20,type:'normal'},
+      {x:970,y:305,w:80,h:20,type:'bouncy'},
+      {x:1150,y:270,w:100,h:22,type:'normal'},
+      {x:1350,y:255,w:80,h:20,type:'bouncy'},
+      {x:1530,y:205,w:80,h:20,type:'normal'},
+      {x:1700,y:192,w:80,h:20,type:'bouncy'},
+      {x:1880,y:152,w:80,h:20,type:'normal'},
+      {x:2050,y:140,w:100,h:22,type:'normal'},
+      {x:2250,y:125,w:80,h:20,type:'bouncy'},
+      {x:2420,y:90,w:80,h:20,type:'moving',mAxis:'y',mRange:65,mSpeed:2.0},
+      {x:2610,y:78,w:80,h:20,type:'bouncy'},
+      {x:2790,y:52,w:80,h:20,type:'normal'},
+      {x:2960,y:40,w:80,h:20,type:'bouncy'},
+      {x:3140,y:15,w:80,h:20,type:'normal'},
+      {x:3310,y:2,w:100,h:22,type:'normal'},
+      {x:3510,y:-8,w:80,h:20,type:'bouncy'},
+      {x:3690,y:-38,w:80,h:20,type:'normal'},
+      {x:3860,y:-50,w:80,h:20,type:'bouncy'},
+      {x:4040,y:-68,w:80,h:20,type:'normal'},
+      {x:4210,y:-62,w:80,h:20,type:'bouncy'},
+      {x:4390,y:-45,w:80,h:20,type:'normal'},
+      {x:4560,y:-35,w:80,h:20,type:'bouncy'},
+      {x:4740,y:-15,w:80,h:20,type:'normal'},
+      {x:4920,y:40,w:200,h:22,type:'normal'},
+    ],
+    checkpoints:[{x:1168,y:230},{x:2068,y:100},{x:3328,y:-32}],
+  },
 ];
 
 // ── HUD ──
@@ -2993,11 +3502,11 @@ function drawHUD(game){
   if(game._p2active){
     ctx.fillStyle='rgba(200,80,0,0.7)'; ctx.beginPath(); ctx.roundRect(W/2-55,10,110,34,6); ctx.fill();
     ctx.fillStyle='#ffcc88'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('🎮 P2 ACTIVE  I/J/L',W/2,31);
+    ctx.fillText('🎮 P2 ACTIVE  W/A/D',W/2,31);
   } else if(game.state==='playing'){
     ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.beginPath(); ctx.roundRect(W/2-90,10,180,26,5); ctx.fill();
     ctx.fillStyle='#888eaa'; ctx.font='11px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Press ENTER for Player 2  (I/J/L)',W/2,26);
+    ctx.fillText('Press ENTER for Player 2  (W/A/D)',W/2,26);
   }
   // tip (fades out)
   if(game._tipAlpha>0){
@@ -3046,10 +3555,10 @@ function drawMenu(){
   ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.fillText('PRESS SPACE TO PLAY',W/2,H/2+99);
   // controls
   ctx.fillStyle='#5577aa'; ctx.font='13px sans-serif';
-  ctx.fillText('P1: Arrow Keys / WASD to move  •  Space / W / ↑ to jump',W/2,H/2+143);
+  ctx.fillText('P1 (blue): ← → to move  •  ↑ or Space to jump',W/2,H/2+143);
   ctx.fillText('Double jump in mid-air  •  Press into a wall to wall-jump',W/2,H/2+161);
   ctx.fillStyle='#ff9944'; ctx.font='bold 12px sans-serif';
-  ctx.fillText('🎮 2-Player: press ENTER during the game to join as P2  (I=jump  J=left  L=right)',W/2,H/2+181);
+  ctx.fillText('🎮 2-Player: press ENTER during the game  →  P2 (orange) uses W / A / D',W/2,H/2+181);
   // block legend
   ctx.fillStyle='#3a4a6a'; ctx.font='11px sans-serif';
   ctx.fillText('Blocks: Normal · Moving · Bouncy · Crumbling · Ice · Spikes · Disappearing · Clouds · Boost Pad',W/2,H-14);
@@ -3119,8 +3628,13 @@ class Game {
 
   respawn(){
     const lv=LEVELS[this.level];
-    const sp=this.lastCP||lv.spawn;
-    this.player.reset(sp.x,sp.y);
+    // 2-player: if P2 is alive, spawn P1 at P2's current spot; otherwise use checkpoint
+    if(this._p2active&&this.player2&&!this.player2.dead){
+      this.player.reset(this.player2.x,this.player2.y);
+    } else {
+      const sp=this.lastCP||lv.spawn;
+      this.player.reset(sp.x,sp.y);
+    }
     this.state='playing';
     // reset crumbled blocks
     for(const b of this.blocks){
@@ -3163,8 +3677,14 @@ class Game {
       this.player2._tint='#ff6622'; this.player2._tintHL='#ff9955';
       this.player2._tintDk='#cc4400'; this.player2._tintBrd='#aa3300';
       this.player2._respawnCb=()=>{
-        const s2=this.lastCP||LEVELS[this.level].spawn;
-        this.player2.reset(s2.x+28,s2.y); this.deaths++;
+        // If P1 is alive, spawn P2 at P1's current spot; otherwise use checkpoint
+        if(!this.player.dead){
+          this.player2.reset(this.player.x,this.player.y);
+        } else {
+          const s2=this.lastCP||LEVELS[this.level].spawn;
+          this.player2.reset(s2.x,s2.y);
+        }
+        this.deaths++;
       };
       this._p2active=true;
     }
