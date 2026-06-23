@@ -45,11 +45,11 @@ const Input = {
   held(c){ return !!this._held[c]; },
   just(c){ return !!this._just[c]; },
   clear(){ this._just={}; },
-  left(){  return this.held('ArrowLeft'); },
-  right(){ return this.held('ArrowRight'); },
-  jump(){  return this.held('ArrowUp') || this.held('Space'); },
-  jumpJust(){ return this.just('ArrowUp') || this.just('Space'); },
-  anyJust(){ return this.jumpJust() || this.just('Enter'); },
+  left(){  return this.held('ArrowLeft') || Touch.left; },
+  right(){ return this.held('ArrowRight') || Touch.right; },
+  jump(){  return this.held('ArrowUp') || this.held('Space') || Touch.jump; },
+  jumpJust(){ return this.just('ArrowUp') || this.just('Space') || Touch._jumpJust; },
+  anyJust(){ return this.jumpJust() || this.just('Enter') || Touch._anyJust; },
 };
 Input.init();
 
@@ -60,6 +60,100 @@ const Input2 = {
   jump(){      return Input.held('KeyW'); },
   jumpJust(){  return Input.just('KeyW'); },
 };
+
+// ── TOUCH CONTROLS ──
+const Touch = {
+  left:false, right:false, jump:false, _jumpJust:false, _anyJust:false,
+  _joyId:null, _jmpId:null,
+  _knob:{x:0,y:0},
+  _JB:{x:120,y:510}, _JR:68, _KR:28,   // joystick base, base-radius, knob-radius
+  _BTN:{x:780,y:510}, _BR:52,            // jump button center, radius
+
+  _cv(t){
+    const r=canvas.getBoundingClientRect();
+    return {x:(t.clientX-r.left)*(W/r.width), y:(t.clientY-r.top)*(H/r.height)};
+  },
+  _d(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); },
+  _updateJoy(p){
+    const dx=p.x-this._JB.x, dy=p.y-this._JB.y;
+    const mag=Math.hypot(dx,dy)||1;
+    const cl=Math.min(mag,this._JR-this._KR);
+    this._knob={x:dx/mag*cl, y:dy/mag*cl};
+    this.left=dx<-18; this.right=dx>18;
+  },
+
+  init(){
+    canvas.addEventListener('touchstart',e=>{
+      e.preventDefault();
+      for(const t of e.changedTouches){
+        const p=this._cv(t);
+        if(this._jmpId===null && this._d(p,this._BTN)<this._BR+24){
+          this._jmpId=t.identifier; this.jump=true; this._jumpJust=true; this._anyJust=true;
+        } else if(this._joyId===null && p.x<W*0.45 && p.y>H*0.58){
+          this._joyId=t.identifier; this._updateJoy(p); this._anyJust=true;
+        } else {
+          this._anyJust=true;
+        }
+      }
+    },{passive:false});
+
+    canvas.addEventListener('touchmove',e=>{
+      e.preventDefault();
+      for(const t of e.changedTouches)
+        if(t.identifier===this._joyId) this._updateJoy(this._cv(t));
+    },{passive:false});
+
+    const end=e=>{
+      e.preventDefault();
+      for(const t of e.changedTouches){
+        if(t.identifier===this._joyId){
+          this._joyId=null; this._knob={x:0,y:0}; this.left=false; this.right=false;
+        }
+        if(t.identifier===this._jmpId){
+          this._jmpId=null; this.jump=false;
+        }
+      }
+    };
+    canvas.addEventListener('touchend',end,{passive:false});
+    canvas.addEventListener('touchcancel',end,{passive:false});
+  },
+
+  clearJust(){ this._jumpJust=false; this._anyJust=false; },
+
+  draw(){
+    ctx.save();
+    // ── joystick ──
+    const {x:bx,y:by}=this._JB, jr=this._JR, kr=this._KR;
+    ctx.globalAlpha=0.38;
+    ctx.beginPath(); ctx.arc(bx,by,jr,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=2.5; ctx.stroke();
+    // direction arrows (faint)
+    ctx.globalAlpha=0.18; ctx.fillStyle='#fff';
+    ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('◀',bx-jr+14,by); ctx.fillText('▶',bx+jr-14,by);
+    // knob
+    ctx.globalAlpha=this._joyId!==null?0.75:0.45;
+    const kx=bx+this._knob.x, ky=by+this._knob.y;
+    ctx.beginPath(); ctx.arc(kx,ky,kr,0,Math.PI*2);
+    ctx.fillStyle='rgba(180,200,255,0.7)'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.6)'; ctx.lineWidth=2; ctx.stroke();
+
+    // ── jump button ──
+    const {x:jx,y:jy}=this._BTN, br=this._BR;
+    ctx.globalAlpha=this.jump?0.72:0.40;
+    ctx.beginPath(); ctx.arc(jx,jy,br,0,Math.PI*2);
+    ctx.fillStyle=this.jump?'rgba(100,180,255,0.55)':'rgba(100,180,255,0.18)'; ctx.fill();
+    ctx.strokeStyle='rgba(160,220,255,0.75)'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.globalAlpha=this.jump?0.95:0.60;
+    ctx.fillStyle='#cce8ff'; ctx.font='bold 16px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('JUMP',jx,jy);
+
+    ctx.restore();
+  },
+};
+Touch.init();
 
 // ── MATH ──
 const lerp = (a,b,t) => a+(b-a)*t;
@@ -4802,10 +4896,11 @@ class Game {
     if(this.state!=='menu') drawHUD(this);
     if(this.state==='dead') drawDead(this.deaths);
     if(this.state==='levelcomplete') drawComplete(this);
+    Touch.draw();
   }
 
   run(){
-    const loop=()=>{ this.update(); this.draw(); Input.clear(); requestAnimationFrame(loop); };
+    const loop=()=>{ this.update(); this.draw(); Input.clear(); Touch.clearJust(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   }
 }
