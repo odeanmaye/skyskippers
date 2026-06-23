@@ -1,0 +1,13 @@
+{
+  "name": "skyskippers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static site deployment helpers for Skyskippers.",
+  "scripts": {
+    "deploy": "scripts/deploy-s3.sh",
+    "deploy:dry-run": "DRY_RUN=1 scripts/deploy-s3.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

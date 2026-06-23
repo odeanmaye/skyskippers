@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>SkySkipper</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#050318; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
-    canvas { display:block; }
+    html, body { overscroll-behavior:none; }
+    body { background:#050318; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; user-select:none; -webkit-user-select:none; }
+    canvas { display:block; width:min(100vw, calc(100vh * 1.5), 900px); height:auto; touch-action:none; -webkit-touch-callout:none; }
   </style>
 </head>
 <body>
@@ -33,7 +35,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
 // ── INPUT ──
 const Input = {
-  _held:{}, _just:{},
+  _held:{}, _just:{}, _touch:{left:false,right:false,jump:false,jumpJust:false,anyJust:false,pointers:new Map()},
   init() {
     document.addEventListener('keydown', e => {
       if(!this._held[e.code]) this._just[e.code]=true;
@@ -41,6 +43,54 @@ const Input = {
       if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'].includes(e.code)) e.preventDefault();
     });
     document.addEventListener('keyup', e => { this._held[e.code]=false; });
+    canvas.addEventListener('pointerdown', e => this._pointerDown(e), {passive:false});
+    canvas.addEventListener('pointermove', e => this._pointerMove(e), {passive:false});
+    canvas.addEventListener('pointerup', e => this._pointerUp(e), {passive:false});
+    canvas.addEventListener('pointercancel', e => this._pointerUp(e), {passive:false});
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+  },
+  _pos(e){
+    const r=canvas.getBoundingClientRect();
+    return {x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height)};
+  },
+  _pointerDown(e){
+    e.preventDefault();
+    const p=this._pos(e);
+    const role=p.x>W*0.58?'jump':'move';
+    this._touch.anyJust=true;
+    if(role==='jump') this._touch.jumpJust=true;
+    this._touch.pointers.set(e.pointerId,{role,sx:p.x,sy:p.y,x:p.x,y:p.y});
+    try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+    this._syncTouch();
+  },
+  _pointerMove(e){
+    if(!this._touch.pointers.has(e.pointerId)) return;
+    e.preventDefault();
+    const t=this._touch.pointers.get(e.pointerId), p=this._pos(e);
+    t.x=p.x; t.y=p.y;
+    if(t.role==='move'&&t.y-t.sy<-34) this._touch.jumpJust=true;
+    this._syncTouch();
+  },
+  _pointerUp(e){
+    if(!this._touch.pointers.has(e.pointerId)) return;
+    e.preventDefault();
+    this._touch.pointers.delete(e.pointerId);
+    this._syncTouch();
+  },
+  _syncTouch(){
+    let left=false, right=false, jump=false;
+    for(const t of this._touch.pointers.values()){
+      if(t.role==='jump'){
+        jump=true;
+        continue;
+      }
+      const dx=t.x-t.sx;
+      if(dx<-18 || t.x<W*0.24) left=true;
+      if(dx>18 || (t.x>W*0.34&&t.x<W*0.58)) right=true;
+    }
+    this._touch.left=left&&!right;
+    this._touch.right=right&&!left;
+    this._touch.jump=jump;
   },
   held(c){ return !!this._held[c]; },
   just(c){ return !!this._just[c]; },
@@ -4709,15 +4759,16 @@ function drawMenu(){
   ctx.strokeStyle='#1133aa'; ctx.lineWidth=2; ctx.strokeRect(W/2-11,H/2-10+by,22,28);
   // play button
   const bp=Math.sin(t*2)*0.1+0.9;
-  ctx.fillStyle=`rgba(40,170,90,${0.85*bp})`; ctx.beginPath(); ctx.roundRect(W/2-110,H/2+65,220,52,12); ctx.fill();
+  ctx.fillStyle=`rgba(40,170,90,${0.85*bp})`; ctx.beginPath(); ctx.roundRect(W/2-180,H/2+65,360,52,12); ctx.fill();
   ctx.strokeStyle='#88ffaa'; ctx.lineWidth=2; ctx.stroke();
-  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.fillText('PRESS SPACE TO PLAY',W/2,H/2+99);
+  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.fillText('PRESS SPACE OR TAP TO PLAY',W/2,H/2+99);
   // controls
   ctx.fillStyle='#5577aa'; ctx.font='13px sans-serif';
   ctx.fillText('P1 (blue): ← → to move  •  ↑ or Space to jump',W/2,H/2+143);
-  ctx.fillText('Double jump in mid-air  •  Press into a wall to wall-jump',W/2,H/2+161);
+  ctx.fillText('Touch: left side swipe/hold to move  •  right side tap/hold to jump',W/2,H/2+161);
+  ctx.fillText('Double jump in mid-air  •  Press into a wall to wall-jump',W/2,H/2+179);
   ctx.fillStyle='#ff9944'; ctx.font='bold 12px sans-serif';
-  ctx.fillText('🎮 2-Player: press ENTER during the game  →  P2 (orange) uses W / A / D',W/2,H/2+181);
+  ctx.fillText('🎮 2-Player: press ENTER during the game  →  P2 (orange) uses W / A / D',W/2,H/2+199);
   // block legend
   ctx.fillStyle='#3a4a6a'; ctx.font='11px sans-serif';
   ctx.fillText('Blocks: Normal · Moving · Bouncy · Crumbling · Ice · Spikes · Disappearing · Clouds · Boost Pad',W/2,H-14);
@@ -4744,11 +4795,11 @@ function drawComplete(game){
   const pulse=Math.sin(t*3)*0.2+0.8;
   if(game.level<LEVELS.length-1){
     ctx.fillStyle=`rgba(100,210,255,${pulse})`; ctx.font='bold 21px sans-serif';
-    ctx.fillText('Press SPACE for next level',W/2,H/2+65);
+    ctx.fillText('Press SPACE or tap for next level',W/2,H/2+65);
   } else {
     ctx.fillStyle='#ffdd44'; ctx.font='bold 26px sans-serif'; ctx.fillText('YOU BEAT THE GAME! 🎉',W/2,H/2+65);
     ctx.fillStyle=`rgba(255,220,80,${pulse})`; ctx.font='18px sans-serif';
-    ctx.fillText('Press SPACE to play again',W/2,H/2+100);
+    ctx.fillText('Press SPACE or tap to play again',W/2,H/2+100);
   }
 }
 
